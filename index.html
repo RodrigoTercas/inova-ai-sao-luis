@@ -630,8 +630,8 @@ function extrasSystem(){
 }
 /* Claude do app (sample) aceita no máximo 64 KiB por pedido. Monta o turno cortando pela ordem de menor perda:
    catálogo de skills → arquivos base → skills ativas → documentos → prompt do assistente. */
-let LIM_APP=64*1024-1024; // teto do Claude do app (contrato sample 0.2.46); ajustado por sample.limits() no boot
-const nbytes=s=>new TextEncoder().encode(s||'').length;
+let LIM_APP=64*1024-6*1024; // teto do Claude do app (64 KiB) com folga de 6 KiB para a moldura da plataforma; ajustado por sample.limits() no boot
+const nbytes=s=>{const b=new TextEncoder().encode(s||'').length;const j=JSON.stringify(s||'').length-2;return Math.max(b,j);}; // mede pelo maior entre UTF-8 e JSON escapado
 function cortar(s,max){const u=new TextEncoder().encode(s||'');if(u.length<=max)return s;return new TextDecoder().decode(u.subarray(0,Math.max(0,max-60))).replace(/\uFFFD+$/,'')+'\n[... cortado para caber no limite do Claude do app]';}
 function cortarMeio(s,max){ // prompt do assistente: preserva o começo (papel, tarefas) e o fim (modelo de saída, restrições)
   const u=new TextEncoder().encode(s||'');if(u.length<=max)return s;const aviso='\n\n[... trecho intermediário omitido para caber no limite de 64 KiB do Claude do app; a análise integral exige a API fora do claude.ai ...]\n\n';
@@ -692,7 +692,8 @@ function fatiarTexto(rot,txt,max){ // divide um texto em blocos de até `max` by
 async function chamarApp(partes,docs,tarefa,hist,asst,toolsExtra,onText){ // Claude do app sem cortes: o que não cabe na mensagem vai por ferramenta
   const m=montarApp(partes,docs,tarefa,hist);
   const podeTools=!!(sampleLimits&&sampleLimits.tools);
-  if(!m.cortes.length||!podeTools){avisarCortes(asst,m.cortes);return sample([...hist,{role:'user',content:m.texto}],optsApp(toolsExtra,onText));}
+  const registrar=txt=>{window.__ultimoTam=`mensagem ${Math.round(nbytes(txt)/1024)} KB + histórico ${Math.round(hist.reduce((s,x)=>s+nbytes(x.content),0)/1024)} KB`;};
+  if(!m.cortes.length||!podeTools){avisarCortes(asst,m.cortes);registrar(m.texto);return sample([...hist,{role:'user',content:m.texto}],optsApp(toolsExtra,onText));}
   // o começo do prompt vai inline: a mensagem aceita 64 KiB, os resultados de ferramenta só 32 KB
   const fixoBoot=2600+nbytes(tarefa)+nbytes(partes.extras||'')+hist.reduce((s,t)=>s+nbytes(t.content)+40,0);
   const orcInline=Math.max(0,LIM_APP-fixoBoot);
@@ -721,9 +722,10 @@ ${tarefa}`;
       asst.status=ultima?'Material completo; aguardando a resposta':`Carregando parte ${prox+1}/${N}`;asst.steps.push({label:`Parte ${prox}/${N} entregue: ${b.rot}`,st:'ok'});renderMsgs();
       return `=== PARTE ${prox}/${N} — ${b.rot} ===\n${b.txt}\n\n=== ${ultima?'FIM: material completo. Não chame carregar_materiais de novo; execute a tarefa.':`Continue: chame carregar_materiais para receber a parte ${prox+1}/${N}.`} ===`;}};
   asst.steps.push({label:`Conteúdo integral (${totalKB} KB): ${Math.round(nbytes(inline)/1024)} KB na mensagem + ${N} parte(s) por ferramenta, sem cortes`,st:'ok'});renderMsgs();
+  registrar(boot);
   try{return await sample([...hist,{role:'user',content:boot}],optsApp([tool,...(toolsExtra||[])],onText));}
   catch(e){
-    if(e&&(e.code==='prompt_too_large'||e.code==='tools_unavailable')){asst.steps.push({label:'Leitura em blocos excedeu o que o Claude do app lê de uma vez; refazendo com cortes',st:'warn'});renderMsgs();avisarCortes(asst,m.cortes);return sample([...hist,{role:'user',content:m.texto}],optsApp(toolsExtra,onText));}
+    if(e&&(e.code==='prompt_too_large'||e.code==='tools_unavailable')){asst.steps.push({label:'Leitura em blocos excedeu o que o Claude do app lê de uma vez; refazendo com cortes',st:'warn'});renderMsgs();avisarCortes(asst,m.cortes);registrar(m.texto);return sample([...hist,{role:'user',content:m.texto}],optsApp(toolsExtra,onText));}
     throw e;
   }
 }
@@ -964,7 +966,7 @@ function erroAmigavel(e){
   if(/credit balance|too low|billing/.test(l))return 'Sua conta da IA está sem créditos. Acesse console.anthropic.com → Plans & Billing e adicione créditos.';
   if(/rate limit|429/.test(l))return 'Limite de uso da IA atingido temporariamente. Aguarde um minuto e tente novamente.';
   if(/failed to fetch|load failed|networkerror|connection error|terminated/.test(l))return 'Falha de conexão com a IA.'+(location.hostname.endsWith('claude.ai')?' Dentro do claude.ai a chamada direta à API é bloqueada: use o Claude do app (desmarque "Preferir a API" em Configurações) ou abra a página fora do claude.ai.':' Verifique a conexão e tente novamente.');
-  if(/64 kib|exceed/.test(l))return 'O Claude do app aceita no máximo 64 KiB por pedido e o conteúdo ainda ficou acima. Reduza o documento ou use a API fora do claude.ai (Configurações).';
+  if(/64 kib|exceed|prompt_too_large/.test(l)||(e&&e.code==='prompt_too_large'))return 'O Claude do app aceita no máximo 64 KiB por pedido (e o total que ele lê numa chamada, somando as partes, também é limitado). Comece uma nova conversa ou use a API fora do claude.ai (Configurações).'+(window.__ultimoTam?' [enviado: '+window.__ultimoTam+']':'');
   if(/abort|cancelled/.test(l))return 'Interrompido.';
   if(e&&e.code==='tools_unavailable')return 'Esta visualização do Claude do app não permite ferramentas na página; tente novamente (a página passa a chamar sem ferramentas).';
   return 'Erro'+(e&&e.code?' ('+e.code+')':'')+': '+m;
@@ -1002,8 +1004,11 @@ function ferramentas(asst){ // ferramentas do cliente com registro de etapas, co
   if(pasta)lista.push(...PASTA_TOOLS);
   return comEtapas(asst,lista);
 }
-function turnos(c){ // histórico para o modelo (últimas 16 mensagens, começando em user)
-  const hist=c.msgs.slice(0,-1).slice(-16);while(hist.length&&hist[0].role!=='user')hist.shift();
+function turnos(c){ // API: conversa INTEIRA na janela de 1M tokens; só descarta o mais antigo se estimar acima de ~900k tokens
+  let hist=c.msgs.slice(0,-1).filter(m=>!m.erro);
+  const tk=m=>Math.ceil(((m.content||'').length+(m.anexos||[]).reduce((s,a)=>s+(a.text||'').length,0))/4);
+  while(hist.length>2&&hist.reduce((s,m)=>s+tk(m),0)>900000)hist.shift();
+  while(hist.length&&hist[0].role!=='user')hist.shift();
   return hist.filter(m=>!m.erro).map(m=>m.role==='user'?{role:'user',content:usarApi()?blocosUsuario(m):conteudoTexto(m)}:{role:'assistant',content:m.content||'(sem resposta)'});
 }
 async function rodar(asst,{system,messages,tools,maxTokens}){ // executa no motor ativo com os mesmos handlers
@@ -1011,8 +1016,12 @@ async function rodar(asst,{system,messages,tools,maxTokens}){ // executa no moto
   if(usarApi())return chamarApi(messages,system,abort.signal,h,null,tools,maxTokens);
   const c=conv();const idx=c.msgs.indexOf(asst);const ult=c.msgs[idx-1];
   let hist=c.msgs.slice(0,idx-1).filter(m=>!m.erro).slice(-16);while(hist.length&&hist[0].role!=='user')hist.shift();
-  hist=hist.map(m=>({role:m.role,content:m.role==='user'?conteudoTexto(m):(m.content||'(sem resposta)')}));
-  while(hist.length>4&&hist.reduce((s,x)=>s+nbytes(x.content),0)>20*1024)hist.splice(0,2); // histórico antigo sai primeiro
+  // no histórico, anexos antigos entram só pelo nome (o conteúdo já foi lido e resumido nas respostas); textos longos são encurtados (início+fim)
+  const resumo=(s,max)=>{s=s||'';const u=new TextEncoder().encode(s);if(u.length<=max)return s;const td=new TextDecoder();const h=Math.floor(max*0.6),f=max-h-80;return td.decode(u.subarray(0,h)).replace(/\uFFFD+$/,'')+'\n[... trecho omitido no histórico ...]\n'+td.decode(u.subarray(u.length-f)).replace(/^\uFFFD+/,'');};
+  hist=hist.map(m=>({role:m.role,content:m.role==='user'?resumo((m.content||'')+((m.anexos||[]).length?'\n[anexos desta mensagem: '+m.anexos.map(a=>a.name).join(', ')+']':''),6*1024):resumo(m.content||'(sem resposta)',10*1024)}));
+  const HIST_MAX=20*1024;
+  while(hist.length>2&&hist.reduce((s,x)=>s+nbytes(x.content),0)>HIST_MAX)hist.splice(0,2); // histórico antigo sai primeiro, sempre em pares
+  if(hist.length&&hist.reduce((s,x)=>s+nbytes(x.content),0)>HIST_MAX)hist=hist.slice(-2).map(x=>({role:x.role,content:resumo(x.content,8*1024)}));
   const a=allAst().find(x=>x.id===modo);const partes={core:promptCore(a),base:blocoBase(a),skills:blocoSkills(),catalogo:catalogoSkills(),extras:extrasSystem()};
   const tarefa='=== MENSAGEM DO USUÁRIO ===\n'+(ult.content||'Analise os arquivos anexados.');
   const podeTools=!!(sampleLimits&&sampleLimits.tools);const anx=(ult.anexos||[]).filter(x=>!x.img);
@@ -1034,7 +1043,7 @@ async function enviar(text){
   skillsForcadas=anx.length>0;if(skillsForcadas)asst.steps.push({label:'Arquivo anexado: todas as skills carregadas aplicadas obrigatoriamente',st:'ok'});
   save();showView('chat');$('compConv').querySelector('.inp').value='';abort=new AbortController();refreshComp();
   try{
-    await rodar(asst,{system:systemPrompt(),messages:turnos(c),tools:ferramentas(asst),maxTokens:16000});
+    await rodar(asst,{system:systemPrompt(),messages:turnos(c),tools:ferramentas(asst),maxTokens:64000});
     if(!asst.content)asst.content='Não consegui concluir a resposta. Tente reformular a pergunta.';
     asst.skills=skillsForcadas?allSk().map(s=>s.nome):[...allSk().filter(s=>s.sempre||S.skillsOn[s.id]).map(s=>s.nome),...(asst.acionadas||[])];
   }catch(e){if(!asst.content){asst.erro=true;asst.content=erroAmigavel(e);}else asst.content+='\n\n> '+erroAmigavel(e);}
@@ -1065,7 +1074,7 @@ async function processarAnalise(c,text,anx,a){
     asst.status='Lendo o documento';renderMsgs();
     const h={onText:t=>{full=t;const disp=t.split(MARKER)[0];const seguro=t.includes(MARKER)?disp.length:Math.max(0,disp.length-MARKER.length);asst.content=disp.slice(0,seguro);renderMsgs();},onThinking:t=>{asst.pens=(asst.pens||'')+t;renderMsgs();},onStep:l=>{asst.status=l;asst.steps.push({label:l,st:'ok'});renderMsgs();}};
     const system=promptAssistente(a)+blocoSkills()+catalogoSkills();const tools=comEtapas(asst,toolSkill(asst));
-    if(usarApi())await chamarApi([{role:'user',content}],system,abort.signal,h,null,tools,32000);
+    if(usarApi())await chamarApi([{role:'user',content}],system,abort.signal,h,null,tools,128000);
     else{const partes={core:promptCore(a),base:blocoBase(a),skills:blocoSkills(),catalogo:catalogoSkills()};const tarefa=instrucoesAnalise(ctx);
       const podeTools=!!(sampleLimits&&sampleLimits.tools);
       const docs=podeTools?anx.map(x=>`--- DOCUMENTO: ${x.name} ---\n${x.text||'(sem texto)'}`).join('\n\n'):await docsParaApp(anx,partes,tarefa,[],asst,user);
@@ -1127,7 +1136,7 @@ async function gerarMinuta(i,instrucoes){
   try{
     const h={onText:t=>{asst.content='Redigindo a minuta… ('+t.length.toLocaleString('pt-BR')+' caracteres)';renderMsgs();},onThinking:t=>{asst.pens=(asst.pens||'')+t;renderMsgs();},onStep:l=>{asst.status=l;asst.steps.push({label:l,st:'ok'});renderMsgs();}};
     const system=(a?promptAssistente(a):SYSTEM_BASE)+blocoSkills()+catalogoSkills();let raw='';const tools=comEtapas(asst,toolSkill(asst));
-    if(usarApi())raw=await chamarApi([{role:'user',content}],system,abort.signal,h,null,tools,32000);
+    if(usarApi())raw=await chamarApi([{role:'user',content}],system,abort.signal,h,null,tools,128000);
     else{const partes={core:a?promptCore(a):SYSTEM_BASE,base:a?blocoBase(a):'',skills:blocoSkills(),catalogo:catalogoSkills()};const tarefa=promptMinuta(sel,instrucoes,ctx);
       const podeTools=!!(sampleLimits&&sampleLimits.tools);const anxU=(user.anexos||[]).filter(x=>!x.img);
       const docs=podeTools?anxU.map(x=>`--- DOCUMENTO: ${x.name} ---\n${x.text||'(sem texto)'}`).join('\n\n'):await docsParaApp(anxU,partes,tarefa,[],asst,user);
@@ -1267,7 +1276,7 @@ async function chamarApi(messages,system,signal,h,model,tools,maxTokens){
   const msgs=messages.map(m=>({...m}));let text='';
   const moderno=/(opus-5|sonnet-5|fable|opus-4-[78])/.test(model);
   for(let rodada=0;rodada<10;rodada++){
-    const body={model,max_tokens:maxTokens||16000,system,messages:msgs,stream:true,
+    const body={model,max_tokens:Math.min(maxTokens||64000,/haiku-4-5/.test(model)?64000:128000),system,messages:msgs,stream:true,
       thinking:/haiku-4-5/.test(model)?{type:'enabled',budget_tokens:2000}:{type:'adaptive',display:'summarized'},
       tools:[...ferramentasWeb(model),...tools.map(t=>({name:t.name,description:t.description,input_schema:t.inputSchema||{type:'object',properties:{}}}))]};
     const headers={'content-type':'application/json','x-api-key':S.api.key,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'};
@@ -1571,7 +1580,7 @@ $('btnMin').onclick=()=>{S.min=!S.min;save();$('aside').classList.toggle('min',S
 if(S.orgao)entrar();
 (async()=>{
   [sample,downloads]=await Promise.all([useCap('sample'),useCap('downloads')]);
-  if(sample&&sample.limits){try{sampleLimits=await sample.limits();if(sampleLimits&&sampleLimits.maxPromptBytes)LIM_APP=sampleLimits.maxPromptBytes-1024;}catch(e){}}
+  if(sample&&sample.limits){try{sampleLimits=await sample.limits();if(sampleLimits&&sampleLimits.maxPromptBytes>=32*1024)LIM_APP=sampleLimits.maxPromptBytes-6*1024;}catch(e){}}
   const h=await kvGet('pasta');if(h){try{if(await h.queryPermission({mode:'readwrite'})==='granted')pasta=h;else pastaPend=h;}catch(e){pastaPend=h;}}
   refreshComp();if(conv())renderMsgs();
 })();
