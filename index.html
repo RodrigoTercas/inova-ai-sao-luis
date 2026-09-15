@@ -1020,12 +1020,12 @@ function ferramentas(asst){ // ferramentas do cliente com registro de etapas, co
   if(pasta)lista.push(...PASTA_TOOLS);
   return comEtapas(asst,lista);
 }
-function normalizarTurnos(hist){ // começa em user, alterna user/assistant, termina em assistant (a nova mensagem do usuário vem depois)
+function normalizarTurnos(hist,fim='assistant'){ // começa em user, alterna user/assistant; termina em `fim` ('assistant' quando a nova mensagem vem depois; 'user' quando a própria mensagem atual já está no histórico)
   const out=[];for(const m of hist){const c=typeof m.content==='string'?m.content:m.content;if(!c||(typeof c==='string'&&!c.trim()))continue;
     if(out.length&&out[out.length-1].role===m.role){const u=out[out.length-1];if(typeof u.content==='string'&&typeof c==='string')u.content+='\n\n'+c;else if(Array.isArray(u.content)&&Array.isArray(c))u.content=u.content.concat(c);else u.content=(typeof u.content==='string'?u.content:JSON.stringify(u.content))+'\n\n'+(typeof c==='string'?c:JSON.stringify(c));}
     else out.push({role:m.role,content:c});}
   while(out.length&&out[0].role!=='user')out.shift();
-  while(out.length&&out[out.length-1].role!=='assistant')out.pop();
+  while(out.length&&out[out.length-1].role!==fim)out.pop();
   return out;
 }
 function turnos(c){ // API: conversa INTEIRA na janela de 1M tokens; só descarta o mais antigo se estimar acima de ~900k tokens
@@ -1033,7 +1033,7 @@ function turnos(c){ // API: conversa INTEIRA na janela de 1M tokens; só descart
   const tk=m=>Math.ceil(((m.content||'').length+(m.anexos||[]).reduce((s,a)=>s+(a.text||'').length+(a.pdf?(a.pages||1)*6000:0),0))/3.2); // pt-BR ≈ 3,2 chars/token; PDF nativo ≈ 1.500-2.000 tokens/página
   const janela=/haiku-4-5/.test(S.api.model)?200000:1000000;const teto=janela-(/haiku-4-5/.test(S.api.model)?64000:128000)-Math.ceil(systemPrompt().length/3.2)-8000;
   while(hist.length>2&&hist.reduce((s,m)=>s+tk(m),0)>teto)hist.shift();
-  return normalizarTurnos(hist.map(m=>m.role==='user'?{role:'user',content:usarApi()?blocosUsuario(m):conteudoTexto(m)}:{role:'assistant',content:m.content||'(sem resposta)'}));
+  return normalizarTurnos(hist.map(m=>m.role==='user'?{role:'user',content:usarApi()?blocosUsuario(m):conteudoTexto(m)}:{role:'assistant',content:m.content||'(sem resposta)'}),'user'); // a API exige terminar na mensagem do usuário
 }
 async function rodar(asst,{system,messages,tools,maxTokens}){ // executa no motor ativo com os mesmos handlers
   const h={onText:t=>{asst.content=t;renderMsgs();},onThinking:t=>{asst.pens=(asst.pens||'')+t;renderMsgs();},onStep:l=>{asst.status=l;asst.steps.push({label:l,st:'ok'});renderMsgs();}};
