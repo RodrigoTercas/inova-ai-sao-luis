@@ -194,7 +194,9 @@ aside.min .side-foot,.side-foot.col{flex-direction:column;gap:8px;padding:12px 8
 .editor pre{white-space:pre-wrap;word-break:break-word;font-family:var(--serif)}
 .acts.top{margin:0 0 6px}
 .acts .p{background:var(--azul);color:#fff;border-color:var(--azul)}
-.bubble .tbl{overflow-x:auto;margin:10px 0}
+.bubble{max-width:100%;min-width:0;box-sizing:border-box}
+.bubble .tbl{overflow-x:auto;max-width:100%;margin:10px 0}
+.bubble table{max-width:none}
 .bubble table{border-collapse:collapse;font-size:13px;min-width:60%}
 .bubble th,.bubble td{border:1px solid var(--line);padding:6px 10px;vertical-align:top}
 .bubble th{background:var(--surface-2);font-weight:600}
@@ -639,7 +641,8 @@ function cortarMeio(s,max){ // prompt do assistente: preserva o começo (papel, 
   return td.decode(u.subarray(0,ini)).replace(/\uFFFD+$/,'')+aviso+td.decode(u.subarray(u.length-fim)).replace(/^\uFFFD+/,'');
 }
 function montarApp(partes,docs,tarefa,hist){
-  const cortes=[];let orc=LIM_APP-hist.reduce((s,t)=>s+nbytes(typeof t.content==='string'?t.content:JSON.stringify(t.content))+40,0)-nbytes(tarefa)-nbytes(partes.extras||'')-512;
+  const cortes=[];const histB=hist.reduce((s,t)=>s+nbytes(typeof t.content==='string'?t.content:JSON.stringify(t.content))+40,0);
+  if(nbytes(tarefa)>Math.max(8*1024,LIM_APP-histB-16*1024)){tarefa=cortarMeio(tarefa,Math.max(8*1024,LIM_APP-histB-16*1024));cortes.push('texto da mensagem (muito longo; anexe como arquivo)');}let orc=LIM_APP-hist.reduce((s,t)=>s+nbytes(typeof t.content==='string'?t.content:JSON.stringify(t.content))+40,0)-nbytes(tarefa)-nbytes(partes.extras||'')-512;
   let core=partes.core||'',base=partes.base||'',skills=partes.skills||'',cat=partes.catalogo||'';
   const total=()=>nbytes(core)+nbytes(base)+nbytes(skills)+nbytes(cat)+nbytes(docs);
   if(total()>orc&&cat){cat='';cortes.push('catálogo de skills');}
@@ -647,7 +650,9 @@ function montarApp(partes,docs,tarefa,hist){
   if(total()>orc&&skills){const m=Math.max(0,orc-nbytes(core)-nbytes(docs)-nbytes(base));skills=m>800?cortar(skills,m):'';cortes.push('skills');}
   if(total()>orc&&docs){const m=Math.max(12*1024,orc-nbytes(core)-nbytes(base)-nbytes(skills));docs=cortar(docs,m);cortes.push('documentos anexados');}
   if(total()>orc){core=cortarMeio(core,Math.max(4*1024,orc-nbytes(docs)-nbytes(base)-nbytes(skills)));cortes.push('prompt do assistente (meio omitido)');}
-  return {texto:core+base+skills+cat+(partes.extras||'')+(docs?'\n\n=== DOCUMENTOS ===\n'+docs:'')+'\n\n=== TAREFA ===\n'+tarefa,cortes};
+  let texto=core+base+skills+cat+(partes.extras||'')+(docs?'\n\n=== DOCUMENTOS ===\n'+docs:'')+'\n\n=== TAREFA ===\n'+tarefa;
+  const teto=LIM_APP-histB;if(nbytes(texto)>teto){texto=cortarMeio(texto,Math.max(4*1024,teto));if(!cortes.length)cortes.push('mensagem final');} // garantia dura: nunca acima do teto
+  return {texto,cortes};
 }
 const BLOCO_APP=46*1024;
 function dividirDocs(docs){ // {name,text}[] → blocos de até 46 KiB, quebrando em parágrafos
@@ -672,7 +677,7 @@ async function fichasApp(docs,asst){ // lê cada bloco e devolve fichas compacta
 }
 async function docsParaApp(docs,partes,tarefa,hist,asst,cache){ // texto integral se couber; senão fichas por bloco
   const integral=docs.map(x=>`--- DOCUMENTO: ${x.name} ---\n${x.text||'(sem texto)'}`).join('\n\n');
-  const fixo=nbytes(tarefa)+nbytes(partes.extras||'')+hist.reduce((s,t)=>s+nbytes(t.content)+40,0)+12*1024; // reserva mínima para o prompt do assistente
+  const fixo=nbytes(tarefa)+nbytes(partes.extras||'')+hist.reduce((s,t)=>s+nbytes(t.content)+40,0)+Math.min(nbytes(partes.core||'')+nbytes(partes.skills||''),LIM_APP-16*1024)+2048; // sem ferramentas, o documento integral só entra se sobrar espaço ao lado do prompt e das skills
   if(!docs.length||fixo+nbytes(integral)<=LIM_APP)return integral;
   if(cache&&cache.fichas)return cache.fichas;
   asst.steps.push({label:'Documento maior que o limite de 64 KiB do Claude do app: leitura em blocos com fichas (como no portal)',st:'warn'});
@@ -693,9 +698,11 @@ async function chamarApp(partes,docs,tarefa,hist,asst,toolsExtra,onText){ // Cla
   const m=montarApp(partes,docs,tarefa,hist);
   const podeTools=!!(sampleLimits&&sampleLimits.tools);
   const registrar=txt=>{window.__ultimoTam=`mensagem ${Math.round(nbytes(txt)/1024)} KB + histórico ${Math.round(hist.reduce((s,x)=>s+nbytes(x.content),0)/1024)} KB`;};
-  if(!m.cortes.length||!podeTools){avisarCortes(asst,m.cortes);registrar(m.texto);return sample([...hist,{role:'user',content:m.texto}],optsApp(toolsExtra,onText));}
+  if(!m.cortes.length||!podeTools){avisarCortes(asst,m.cortes);registrar(m.texto);const r=await sample([...hist,{role:'user',content:m.texto}],optsApp(toolsExtra,onText));if(r&&r.truncated){asst.steps.push({label:'Resposta cortada pelo limite de tamanho do Claude do app',st:'warn'});renderMsgs();}return r;}
   // o começo do prompt vai inline: a mensagem aceita 64 KiB, os resultados de ferramenta só 32 KB
-  const fixoBoot=2600+nbytes(tarefa)+nbytes(partes.extras||'')+hist.reduce((s,t)=>s+nbytes(t.content)+40,0);
+  const histB=hist.reduce((s,t)=>s+nbytes(t.content)+40,0);
+  if(nbytes(tarefa)>Math.max(8*1024,LIM_APP-histB-16*1024)){tarefa=cortarMeio(tarefa,Math.max(8*1024,LIM_APP-histB-16*1024));asst.steps.push({label:'Texto da mensagem muito longo: encurtado (anexe como arquivo para leitura integral)',st:'warn'});}
+  const fixoBoot=2600+nbytes(tarefa)+nbytes(partes.extras||'')+histB;
   const orcInline=Math.max(0,LIM_APP-fixoBoot);
   const u=new TextEncoder().encode(partes.core||'');let corte=Math.min(u.length,orcInline);
   if(corte<u.length){const nl=partes.core.lastIndexOf('\n',new TextDecoder().decode(u.subarray(0,corte)).replace(/\uFFFD+$/,'').length);const cand=nl>corte*0.5/1?nl:-1;corte=cand>0?new TextEncoder().encode(partes.core.slice(0,cand)).length:corte;}
@@ -722,8 +729,8 @@ ${tarefa}`;
       asst.status=ultima?'Material completo; aguardando a resposta':`Carregando parte ${prox+1}/${N}`;asst.steps.push({label:`Parte ${prox}/${N} entregue: ${b.rot}`,st:'ok'});renderMsgs();
       return `=== PARTE ${prox}/${N} — ${b.rot} ===\n${b.txt}\n\n=== ${ultima?'FIM: material completo. Não chame carregar_materiais de novo; execute a tarefa.':`Continue: chame carregar_materiais para receber a parte ${prox+1}/${N}.`} ===`;}};
   asst.steps.push({label:`Conteúdo integral (${totalKB} KB): ${Math.round(nbytes(inline)/1024)} KB na mensagem + ${N} parte(s) por ferramenta, sem cortes`,st:'ok'});renderMsgs();
-  registrar(boot);
-  try{return await sample([...hist,{role:'user',content:boot}],optsApp([tool,...(toolsExtra||[])],onText));}
+  const bootF=nbytes(boot)>LIM_APP-histB?cortarMeio(boot,Math.max(4*1024,LIM_APP-histB)):boot;registrar(bootF);
+  try{const r=await sample([...hist,{role:'user',content:bootF}],optsApp([tool,...(toolsExtra||[])],onText));if(prox<N)asst.steps.push({label:`Atenção: o modelo respondeu com material parcial (${prox}/${N} partes lidas)`,st:'warn'});if(r&&r.truncated)asst.steps.push({label:'Resposta cortada pelo limite de tamanho do Claude do app',st:'warn'});renderMsgs();return r;}
   catch(e){
     if(e&&(e.code==='prompt_too_large'||e.code==='tools_unavailable')){asst.steps.push({label:'Leitura em blocos excedeu o que o Claude do app lê de uma vez; refazendo com cortes',st:'warn'});renderMsgs();avisarCortes(asst,m.cortes);registrar(m.texto);return sample([...hist,{role:'user',content:m.texto}],optsApp(toolsExtra,onText));}
     throw e;
@@ -950,7 +957,7 @@ function renderMsgs(){
     const steps=(m.steps||[]).map(s=>`<span class="step ${s.st}">${esc(s.label)}</span>`).join('');
     const pens=m.pens?`<details class="pens" ${rodando&&!m.content?'open':''}><summary>Raciocínio</summary><div>${esc(m.pens)}</div></details>`:'';
     const status=rodando&&!m.content?`<div class="status"><i></i>${esc(m.status||'Pensando')}…</div>`:'';
-    const corpo=m.erro?`<div class="erro-msg">${esc(m.content)}</div>${!abort?`<div class="acts"><button data-retry="1">Tentar novamente</button></div>`:''}`:(m.content?md(m.content):'');
+    const corpo=m.erro?`<div class="erro-msg">${esc(m.content)}</div>${!abort&&i===c.msgs.length-1&&m.tipo!=='minuta'&&c.msgs[i-1]&&c.msgs[i-1].role==='user'?`<div class="acts"><button data-retry="1">Tentar novamente</button></div>`:''}`:(m.content?md(m.content):'');
     const acts=m.content&&!m.erro&&!rodando?`<div class="acts"><button data-copy="1">Copiar</button><button data-editor="${i}">Editar / gerar DOCX</button>${pasta?`<button data-salvarpasta="${i}">Salvar na pasta</button>`:''}</div>`:'';
     const topo=m.content&&!m.erro&&!rodando&&(m.content.length>800||/^```/m.test(m.content))?`<div class="acts top"><button class="p" data-editor="${i}">Abrir no Editor de Minuta</button><button data-copy="1">Copiar</button></div>`:'';
     const skb=m.skills&&m.skills.length?`<div class="skb">${m.skills.map(n=>`<span title="Skill aplicada nesta resposta">${esc(n)}</span>`).join('')}</div>`:'';
@@ -961,14 +968,21 @@ function renderMsgs(){
 }
 let ultimoEnvio=null;
 function erroAmigavel(e){
-  const m=String(e&&e.message||e||'');const l=m.toLowerCase();
+  const m=String(e&&e.message||e||'');const l=m.toLowerCase();const code=e&&e.code;
+  if(code==='cancelled')return 'Interrompido.';
+  if(code==='rate_limited')return 'Limite de uso do Claude do app atingido por agora. Aguarde um pouco e tente de novo.';
+  if(code==='refused')return 'O Claude recusou esta solicitação; o trecho parcial foi retirado.';
+  if(code==='truncated')return 'A resposta foi cortada pelo limite de tamanho.';
+  if(['not_granted','sampling_disabled','not_declared','capability_disabled','capability_removed','session_expired'].includes(code)){sample=null;refreshComp();return code==='not_granted'?'O Claude do app não foi autorizado para esta página nesta visualização. Recarregue a página e aceite o pedido de autorização, ou use a API em Configurações.':'O Claude do app não está disponível nesta visualização ('+code+'). Recarregue a página ou use a API em Configurações.';}
+  if(code==='tools_unavailable')return 'Esta visualização do Claude do app não permite ferramentas na página; tente novamente (a página passa a chamar sem ferramentas).';
+  if(code==='prompt_too_large')return 'O Claude do app aceita no máximo 64 KiB por pedido (e o total lido numa chamada, somando as partes, também é limitado). Comece uma nova conversa ou use a API fora do claude.ai (Configurações).'+(window.__ultimoTam?' [enviado: '+window.__ultimoTam+']':'');
+  if(code==='api'&&/exceed context|context limit|input length/.test(l))return 'A conversa passou da janela de contexto do modelo escolhido. Comece uma nova conversa ou troque para um modelo com janela de 1 milhão (Opus 5, Sonnet 5, Fable).';
   if(e&&e.code==='not_granted')return 'Autorize o Claude para esta página quando o app pedir e tente novamente.';
   if(/credit balance|too low|billing/.test(l))return 'Sua conta da IA está sem créditos. Acesse console.anthropic.com → Plans & Billing e adicione créditos.';
   if(/rate limit|429/.test(l))return 'Limite de uso da IA atingido temporariamente. Aguarde um minuto e tente novamente.';
   if(/failed to fetch|load failed|networkerror|connection error|terminated/.test(l))return 'Falha de conexão com a IA.'+(location.hostname.endsWith('claude.ai')?' Dentro do claude.ai a chamada direta à API é bloqueada: use o Claude do app (desmarque "Preferir a API" em Configurações) ou abra a página fora do claude.ai.':' Verifique a conexão e tente novamente.');
-  if(/64 kib|exceed|prompt_too_large/.test(l)||(e&&e.code==='prompt_too_large'))return 'O Claude do app aceita no máximo 64 KiB por pedido (e o total que ele lê numa chamada, somando as partes, também é limitado). Comece uma nova conversa ou use a API fora do claude.ai (Configurações).'+(window.__ultimoTam?' [enviado: '+window.__ultimoTam+']':'');
+  if(/64 kib|prompt_too_large/.test(l))return 'O Claude do app aceita no máximo 64 KiB por pedido. Comece uma nova conversa ou use a API fora do claude.ai (Configurações).'+(window.__ultimoTam?' [enviado: '+window.__ultimoTam+']':'');
   if(/abort|cancelled/.test(l))return 'Interrompido.';
-  if(e&&e.code==='tools_unavailable')return 'Esta visualização do Claude do app não permite ferramentas na página; tente novamente (a página passa a chamar sem ferramentas).';
   return 'Erro'+(e&&e.code?' ('+e.code+')':'')+': '+m;
 }
 function conteudoTexto(m){ // Claude do app (sample): texto puro
@@ -991,10 +1005,12 @@ function toolSkill(asst){
   return [{name:'skill_carregar',description:'Carrega as instruções completas de uma skill do órgão quando a tarefa se encaixa na descrição dela (o gatilho). Passe o nome exato do catálogo. Depois de carregar, siga as instruções à risca.',inputSchema:{type:'object',properties:{nome:{type:'string'}},required:['nome']},
     execute:async i=>{const s=g.find(x=>x.nome===String(i.nome||''))||g.find(x=>x.nome.toLowerCase()===String(i.nome||'').toLowerCase());if(!s)return `Skill "${i.nome}" não existe no catálogo. Nomes válidos: ${g.map(x=>x.nome).join(', ')}.`;asst.acionadas=asst.acionadas||[];if(!asst.acionadas.includes(s.nome))asst.acionadas.push(s.nome);return blocoSkill(s);}}];
 }
+const TETO_RESULTADO=26*1024; // contrato sample: resultado de execute ≤ 32 KB em JSON
+function limitarResultado(r){if(usarApi())return r;const s=typeof r==='string'?r:JSON.stringify(r);return nbytes(s)>TETO_RESULTADO?cortar(s,TETO_RESULTADO)+'\n[resultado encurtado ao teto de 32 KB do Claude do app; peça outra parte ou use a API]':r;}
 function comEtapas(asst,lista){
   return lista.map(t=>({...t,execute:async(input,cx)=>{
     const det=input&&(input.caminho||input.nome||input.query);const s={label:(ROTULO[t.name]||t.name)+(det?': '+String(det).slice(0,60):''),st:'run'};asst.steps.push(s);asst.status=s.label;renderMsgs();
-    try{const r=await t.execute(input||{},cx);s.st='ok';renderMsgs();return r;}catch(e){s.st='err';s.label+=' ✕';renderMsgs();throw e;}
+    try{const r=limitarResultado(await t.execute(input||{},cx));s.st='ok';renderMsgs();return r;}catch(e){s.st='err';s.label+=' ✕';renderMsgs();throw e;}
   }}));
 }
 function ferramentas(asst){ // ferramentas do cliente com registro de etapas, como as do portal
@@ -1004,12 +1020,20 @@ function ferramentas(asst){ // ferramentas do cliente com registro de etapas, co
   if(pasta)lista.push(...PASTA_TOOLS);
   return comEtapas(asst,lista);
 }
+function normalizarTurnos(hist){ // começa em user, alterna user/assistant, termina em assistant (a nova mensagem do usuário vem depois)
+  const out=[];for(const m of hist){const c=typeof m.content==='string'?m.content:m.content;if(!c||(typeof c==='string'&&!c.trim()))continue;
+    if(out.length&&out[out.length-1].role===m.role){const u=out[out.length-1];if(typeof u.content==='string'&&typeof c==='string')u.content+='\n\n'+c;else if(Array.isArray(u.content)&&Array.isArray(c))u.content=u.content.concat(c);else u.content=(typeof u.content==='string'?u.content:JSON.stringify(u.content))+'\n\n'+(typeof c==='string'?c:JSON.stringify(c));}
+    else out.push({role:m.role,content:c});}
+  while(out.length&&out[0].role!=='user')out.shift();
+  while(out.length&&out[out.length-1].role!=='assistant')out.pop();
+  return out;
+}
 function turnos(c){ // API: conversa INTEIRA na janela de 1M tokens; só descarta o mais antigo se estimar acima de ~900k tokens
   let hist=c.msgs.slice(0,-1).filter(m=>!m.erro);
-  const tk=m=>Math.ceil(((m.content||'').length+(m.anexos||[]).reduce((s,a)=>s+(a.text||'').length,0))/4);
-  while(hist.length>2&&hist.reduce((s,m)=>s+tk(m),0)>900000)hist.shift();
-  while(hist.length&&hist[0].role!=='user')hist.shift();
-  return hist.filter(m=>!m.erro).map(m=>m.role==='user'?{role:'user',content:usarApi()?blocosUsuario(m):conteudoTexto(m)}:{role:'assistant',content:m.content||'(sem resposta)'});
+  const tk=m=>Math.ceil(((m.content||'').length+(m.anexos||[]).reduce((s,a)=>s+(a.text||'').length+(a.pdf?(a.pages||1)*6000:0),0))/3.2); // pt-BR ≈ 3,2 chars/token; PDF nativo ≈ 1.500-2.000 tokens/página
+  const janela=/haiku-4-5/.test(S.api.model)?200000:1000000;const teto=janela-(/haiku-4-5/.test(S.api.model)?64000:128000)-Math.ceil(systemPrompt().length/3.2)-8000;
+  while(hist.length>2&&hist.reduce((s,m)=>s+tk(m),0)>teto)hist.shift();
+  return normalizarTurnos(hist.map(m=>m.role==='user'?{role:'user',content:usarApi()?blocosUsuario(m):conteudoTexto(m)}:{role:'assistant',content:m.content||'(sem resposta)'}));
 }
 async function rodar(asst,{system,messages,tools,maxTokens}){ // executa no motor ativo com os mesmos handlers
   const h={onText:t=>{asst.content=t;renderMsgs();},onThinking:t=>{asst.pens=(asst.pens||'')+t;renderMsgs();},onStep:l=>{asst.status=l;asst.steps.push({label:l,st:'ok'});renderMsgs();}};
@@ -1022,6 +1046,7 @@ async function rodar(asst,{system,messages,tools,maxTokens}){ // executa no moto
   const HIST_MAX=20*1024;
   while(hist.length>2&&hist.reduce((s,x)=>s+nbytes(x.content),0)>HIST_MAX)hist.splice(0,2); // histórico antigo sai primeiro, sempre em pares
   if(hist.length&&hist.reduce((s,x)=>s+nbytes(x.content),0)>HIST_MAX)hist=hist.slice(-2).map(x=>({role:x.role,content:resumo(x.content,8*1024)}));
+  hist=normalizarTurnos(hist);
   const a=allAst().find(x=>x.id===modo);const partes={core:promptCore(a),base:blocoBase(a),skills:blocoSkills(),catalogo:catalogoSkills(),extras:extrasSystem()};
   const tarefa='=== MENSAGEM DO USUÁRIO ===\n'+(ult.content||'Analise os arquivos anexados.');
   const podeTools=!!(sampleLimits&&sampleLimits.tools);const anx=(ult.anexos||[]).filter(x=>!x.img);
@@ -1046,7 +1071,7 @@ async function enviar(text){
     await rodar(asst,{system:systemPrompt(),messages:turnos(c),tools:ferramentas(asst),maxTokens:64000});
     if(!asst.content)asst.content='Não consegui concluir a resposta. Tente reformular a pergunta.';
     asst.skills=skillsForcadas?allSk().map(s=>s.nome):[...allSk().filter(s=>s.sempre||S.skillsOn[s.id]).map(s=>s.nome),...(asst.acionadas||[])];
-  }catch(e){if(!asst.content){asst.erro=true;asst.content=erroAmigavel(e);}else asst.content+='\n\n> '+erroAmigavel(e);}
+  }catch(e){if(e&&e.code==='refused')asst.content='';if(!asst.content){asst.erro=true;asst.content=erroAmigavel(e);}else asst.content+='\n\n> '+erroAmigavel(e);}
   finally{abort=null;skillsForcadas=false;asst.status='';save();renderMsgs();refreshComp();}
 }
 const MARKER='===DADOS_ESTRUTURADOS===';
@@ -1085,7 +1110,7 @@ async function processarAnalise(c,text,anx,a){
     else asst.dados={vulnerabilidades:[],viabilidade:''};
     if(!asst.content)asst.content='Não consegui concluir a análise. Tente novamente.';
     asst.skills=allSk().map(s=>s.nome);
-  }catch(e){if(!asst.content){asst.erro=true;asst.content=erroAmigavel(e);}else asst.content+='\n\n> '+erroAmigavel(e);}
+  }catch(e){if(e&&e.code==='refused')asst.content='';if(!asst.content){asst.erro=true;asst.content=erroAmigavel(e);}else asst.content+='\n\n> '+erroAmigavel(e);}
   finally{abort=null;skillsForcadas=false;asst.status='';save();renderMsgs();refreshComp();}
 }
 function promptMinuta(vulns,instrucoes,ctx){
@@ -1151,7 +1176,7 @@ async function gerarMinuta(i,instrucoes){
 $('msgs').addEventListener('click',async e=>{
   const c=conv();
   const cp=e.target.closest('[data-copy]');if(cp){const m=cp.closest('.msg').querySelector('.bubble').innerText;await navigator.clipboard.writeText(m);cp.textContent='Copiado';setTimeout(()=>cp.textContent='Copiar',1800);return;}
-  const rt=e.target.closest('[data-retry]');if(rt&&ultimoEnvio&&c){c.msgs.splice(-2,2);modo=ultimoEnvio.modo;anexos=ultimoEnvio.anx.slice();save();renderMsgs();enviar(ultimoEnvio.text);return;}
+  const rt=e.target.closest('[data-retry]');if(rt&&ultimoEnvio&&c){const n=c.msgs.length;if(n>=2&&c.msgs[n-1].erro&&c.msgs[n-2].role==='user'){c.msgs.splice(-2,2);modo=ultimoEnvio.modo;anexos=ultimoEnvio.anx.slice();save();renderMsgs();enviar(ultimoEnvio.text);}return;}
   const ed=e.target.closest('[data-editor]');if(ed){const m=c.msgs[+ed.dataset.editor];m.minuta=m.minuta||md(m.content,true);abrirEditor(m.minuta,{conv:c.id,msg:m});return;}
   const sp=e.target.closest('[data-salvarpasta]');if(sp){const m=c.msgs[+sp.dataset.salvarpasta];const nome=await pedir('Salvar como (caminho dentro da pasta):',`resposta-${new Date().toISOString().slice(0,10)}.md`);if(!nome)return;try{await pastaEscrever(nome,m.content);toast('Salvo na pasta');}catch(err){avisar(err.message||err);}return;}
   const vs=e.target.closest('[data-vsel]');if(vs){const box=vs.closest('.dados');const m=c.msgs[+box.dataset.i];m.vsel=[...box.querySelectorAll('[data-vsel]')].filter(x=>x.checked).map(x=>+x.dataset.vsel);save();return;}
@@ -1297,12 +1322,12 @@ async function chamarApi(messages,system,signal,h,model,tools,maxTokens){
         else if(ev.type==='message_delta'&&ev.delta){if(ev.delta.stop_reason)stop=ev.delta.stop_reason;if(ev.delta.stop_details)stopDet=ev.delta.stop_details;}
         else if(ev.type==='error'){const err=new Error(ev.error&&ev.error.message||'erro');err.code='api';throw err;}}}
     if(stop==='refusal'){const err=new Error('A IA recusou esta solicitação'+(stopDet&&stopDet.category?` (categoria: ${stopDet.category})`:'')+'.');err.code='refusal';throw err;}
-    const conteudo=blocos.filter(Boolean).map(b=>{
-      if(b.type==='text')return {type:'text',text:b.text||' '};
+    const conteudo=blocos.filter(Boolean).map(b=>{ // blocos de texto vazios são descartados (a API rejeita texto só de espaços)
+      if(b.type==='text')return (b.text||'').trim()?{type:'text',text:b.text}:null;
       if(b.type==='tool_use'||b.type==='server_tool_use'){let input={};try{input=JSON.parse(b.json||'{}');}catch(e){}return {type:b.type,id:b.id,name:b.name,input};}
       if(b.type==='thinking')return {type:'thinking',thinking:b.thinking,signature:b.signature};
       return b.raw; // redacted_thinking, web_search_tool_result, web_fetch_tool_result: devolvidos como vieram
-    });
+    }).filter(Boolean);
     if(stop==='pause_turn'){msgs.push({role:'assistant',content:conteudo});continue;}
     const usos=conteudo.filter(b=>b.type==='tool_use');
     if(stop!=='tool_use'||!usos.length)return text;
