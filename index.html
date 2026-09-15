@@ -927,10 +927,8 @@ function chipsAnexos(list){return list&&list.length?`<div class="anx">${list.map
 function renderDados(m,i){
   const d=m.dados;if(!d)return '';
   const v=d.vulnerabilidades||[];
-  const lista=v.length?v.map((x,k)=>`<label class="vuln"><input type="checkbox" data-vsel="${k}" ${m.vsel&&!m.vsel.includes(k)?'':'checked'}><div><span class="tp">${esc(x.tipo||'Apontamento')}</span><span class="sev ${esc((x.severidade||'').toLowerCase())}">${esc(x.severidade||'')}</span><div>${esc(x.descricao||'')}</div>${x.fundamentacao?`<div class="fund">${esc(x.fundamentacao)}</div>`:''}</div></label>`).join(''):'<div class="sub" style="font-size:13px">Nenhuma vulnerabilidade apontada.</div>';
-  return `<div class="dados" data-i="${i}"><h4>Vulnerabilidades e pontos de atenção</h4>${lista}${d.viabilidade?`<div class="viab">${esc(d.viabilidade)}</div>`:''}
-    ${m.minuta?`<div style="margin-top:10px"><button class="btn-s sm" data-editar="${i}">Editar minuta</button> <button class="btn-s sm" data-gform="${i}">Gerar novamente</button></div>`:`<div style="margin-top:10px"><button class="btn-p sm" data-gform="${i}">Gerar minuta</button></div>`}
-    <div class="mform" data-mform="${i}" hidden><textarea placeholder="Instruções adicionais para a minuta (opcional). Ex.: redija o ofício de devolução focando nas inconsistências do Termo de Referência…"></textarea><div><button class="btn-p sm" data-gerar="${i}">Gerar minuta</button> <button class="btn-s sm" data-gcancel="${i}">Cancelar</button></div></div></div>`;
+  const lista=v.length?v.map((x,k)=>`<div class="vuln"><div><span class="tp">${esc(x.tipo||'Apontamento')}</span><span class="sev ${esc((x.severidade||'').toLowerCase())}">${esc(x.severidade||'')}</span><div>${esc(x.descricao||'')}</div>${x.fundamentacao?`<div class="fund">${esc(x.fundamentacao)}</div>`:''}</div></div>`).join(''):'<div class="sub" style="font-size:13px">Nenhuma vulnerabilidade apontada.</div>';
+  return `<div class="dados" data-i="${i}"><h4>Vulnerabilidades e pontos de atenção</h4>${lista}${d.viabilidade?`<div class="viab">${esc(d.viabilidade)}</div>`:''}${m.minuta?`<div style="margin-top:10px"><button class="btn-s sm" data-editar="${i}">Abrir minuta no editor</button></div>`:''}</div>`;
 }
 function renderMsgs(){
   const c=conv();const box=$('msgs');box.innerHTML='';minutas.length=0;if(!c)return;
@@ -1171,7 +1169,7 @@ function abrirEditor(html,ctx){
   edCtx=ctx||null;const cv=ctx&&ctx.conv?S.convs.find(x=>x.id===ctx.conv):null;const a=ctx&&ctx.msg&&allAst().find(x=>x.id===(ctx.msg.assistente||(cv&&cv.modo)||modo));
   edLogo=(a&&a.logo)||logoPrefeitura();
   $('editorDoc').innerHTML=(edLogo?`<img class="timb" src="${edLogo}" alt="">`:'')+limparHtml(html);
-  $('edRegenerar').hidden=!(ctx&&ctx.analise);$('edPasta').hidden=!pasta;
+  $('edRegenerar').hidden=true;$('edPasta').hidden=!pasta;
   showView('minuta');$('edVoltar').onclick=()=>showView('chat');
 }
 function editorHtml(){const d=$('editorDoc').cloneNode(true);d.querySelectorAll('img.timb').forEach(n=>n.remove());return d.innerHTML;}
