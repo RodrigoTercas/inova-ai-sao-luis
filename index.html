@@ -521,7 +521,7 @@ const SKILLS=[
   txt:'LINGUAGEM SIMPLES: ao produzir versão ao cidadão, use frases de até 20 palavras, voz ativa, vocabulário comum, explique siglas na primeira vez, um assunto por parágrafo, e mantenha datas, prazos e valores exatos.'},
 ];
 const CONECTORES=[['Google Drive','GD','#1E71AF'],['Google Calendar','31','#2E7D4F'],['Gmail','M','#B23A3A']];
-const MODEL_CTX=1000000;
+const MODEL_CTX=1000000;const VERSAO='2026-09-15c';
 const SYSTEM_BASE=`Você é o Inova AI, assistente de redação de atos administrativos, comunicações oficiais e peças judiciais da Prefeitura Municipal de São Luís (MA). Seus usuários são servidores, procuradores e gestores municipais. Você não tem acesso a sistemas: trabalha só com o que o usuário escrever, colar ou anexar na conversa.
 Cite apenas normas que conhece com segurança (Constituição, Lei nº 12.527/2011, Lei nº 14.133/2021, Lei nº 13.709/2018, Lei nº 8.429/1992, Lei nº 9.784/1999 por analogia). Se a resposta depender de norma municipal ou de fato que não tem, diga isso em vez de supor.
 PEÇAS JUDICIAIS (quando o pedido for da Procuradoria): o Município de São Luís é a parte, representado pela Procuradoria-Geral do Município. Estrutura de petição: endereçamento ao juízo, número do processo [PENDÊNCIA], qualificação das partes, síntese dos fatos, fundamentos de direito (só dispositivos que conhece com segurança; jurisprudência vira [JURISPRUDÊNCIA A SER INSERIDA PELO PROCURADOR APÓS PESQUISA PRÓPRIA]), pedidos numerados, provas, valor da causa quando cabível, local, data e "[NOME] / Procurador(a) do Município / OAB/MA [NÚMERO]". Contestação: preliminares antes do mérito, impugnação específica dos fatos (art. 341 do CPC), pedidos. Recursos: cabimento, tempestividade (prazo em dobro para a Fazenda Pública, art. 183 do CPC), preparo dispensado (art. 1.007, § 1º), razões e pedido de reforma. Prerrogativas da Fazenda: intimação pessoal, remessa necessária (art. 496), precatório/RPV (art. 100 da CF). Execução fiscal: Lei nº 6.830/1980.
@@ -791,7 +791,7 @@ function refreshComp(){
     if(badge){badge.textContent=n;badge.hidden=!n;}
     const nome=h.querySelector('.modoNome');if(nome)nome.textContent=modo?(allAst().find(a=>a.id===modo)||{}).nome||'Chat livre':'Chat livre';
     const ax=h.querySelector('.anexos');if(ax)ax.innerHTML=(pasta?`<span class="anexo pasta" title="Pasta de trabalho: a IA lê, grava e cria pastas aqui">📁 ${esc(pasta.name)}<button data-rmpasta="1" title="Desconectar">×</button></span>`:pastaPend?`<span class="anexo pasta pend" data-reconn="1" title="Clique para reconectar (o navegador pede permissão)">📁 Reconectar ${esc(pastaPend.name)}</span>`:'')+anexos.map((a,i)=>`<span class="anexo">${a.img?`<img src="${a.img}" alt="">`:''}${esc(a.name)} <small>${a.img?'foto':a.pages?a.pages+' pág.':(a.text.length/1024).toFixed(0)+' KB'}</small><button data-rm="${i}" title="Remover">×</button></span>`).join('');
-    const hint=h.querySelector('.hint');if(hint)hint.textContent=(modo?(allAst().find(a=>a.id===modo)||{}).nome||'Chat livre':'Chat livre')+' · Enter envia · ⌘U anexa'+(modo&&anexos.length?' · assistente + documentos = análise completa':'')+(sample||usarApi()?' · '+motorNome():' · Claude indisponível: abra no claude.ai ou informe a chave em Configurações');
+    const hint=h.querySelector('.hint');if(hint)hint.textContent=(modo?(allAst().find(a=>a.id===modo)||{}).nome||'Chat livre':'Chat livre')+' · Enter envia · ⌘U anexa · v'+VERSAO+(modo&&anexos.length?' · assistente + documentos = análise completa':'')+(sample||usarApi()?' · '+motorNome():' · Claude indisponível: abra no claude.ai ou informe a chave em Configurações');
     const sb=h.querySelector('.sendbtn');if(sb){sb.classList.toggle('stop',!!abort);sb.innerHTML=abort?'<svg class="i" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>':'<svg class="i" viewBox="0 0 24 24"><path d="M12 19V5M5 12l7-7 7 7"/></svg>';}
   });
   refreshMeter();
@@ -1306,6 +1306,9 @@ async function chamarApi(messages,system,signal,h,model,tools,maxTokens){
       tools:[...ferramentasWeb(model),...tools.map(t=>({name:t.name,description:t.description,input_schema:t.inputSchema||{type:'object',properties:{}}}))]};
     const headers={'content-type':'application/json','x-api-key':S.api.key,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'};
     if(/opus-5|fable/.test(model)){headers['anthropic-beta']='server-side-fallback-2026-07-01';body.fallbacks='default';}
+    if(msgs.length&&msgs[msgs.length-1].role!=='user')msgs.push({role:'user',content:'Continue de onde parou, sem repetir o que já escreveu.'}); // Opus 5/Fable não aceitam terminar em assistant (prefill)
+    while(msgs.length&&msgs[0].role!=='user')msgs.shift();
+    body.messages=msgs;
     const r=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',signal,headers,body:JSON.stringify(body)});
     if(!r.ok){let m=`HTTP ${r.status}`;try{const j=await r.json();m=(j.error&&j.error.message)||m;}catch(e){}const err=new Error(m);err.code='api';throw err;}
     const rd=r.body.getReader(),dec=new TextDecoder();let buf='',stop='',stopDet=null;const blocos=[];const base=text;
