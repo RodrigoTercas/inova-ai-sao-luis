@@ -521,7 +521,7 @@ const SKILLS=[
   txt:'LINGUAGEM SIMPLES: ao produzir versão ao cidadão, use frases de até 20 palavras, voz ativa, vocabulário comum, explique siglas na primeira vez, um assunto por parágrafo, e mantenha datas, prazos e valores exatos.'},
 ];
 const CONECTORES=[['Google Drive','GD','#1E71AF'],['Google Calendar','31','#2E7D4F'],['Gmail','M','#B23A3A']];
-const MODEL_CTX=1000000;const VERSAO='2026-09-15d';
+const MODEL_CTX=1000000;const VERSAO='2026-09-15e';
 const SYSTEM_BASE=`Você é o Inova AI, assistente de redação de atos administrativos, comunicações oficiais e peças judiciais da Prefeitura Municipal de São Luís (MA). Seus usuários são servidores, procuradores e gestores municipais. Você não tem acesso a sistemas: trabalha só com o que o usuário escrever, colar ou anexar na conversa.
 Cite apenas normas que conhece com segurança (Constituição, Lei nº 12.527/2011, Lei nº 14.133/2021, Lei nº 13.709/2018, Lei nº 8.429/1992, Lei nº 9.784/1999 por analogia). Se a resposta depender de norma municipal ou de fato que não tem, diga isso em vez de supor.
 PEÇAS JUDICIAIS (quando o pedido for da Procuradoria): o Município de São Luís é a parte, representado pela Procuradoria-Geral do Município. Estrutura de petição: endereçamento ao juízo, número do processo [PENDÊNCIA], qualificação das partes, síntese dos fatos, fundamentos de direito (só dispositivos que conhece com segurança; jurisprudência vira [JURISPRUDÊNCIA A SER INSERIDA PELO PROCURADOR APÓS PESQUISA PRÓPRIA]), pedidos numerados, provas, valor da causa quando cabível, local, data e "[NOME] / Procurador(a) do Município / OAB/MA [NÚMERO]". Contestação: preliminares antes do mérito, impugnação específica dos fatos (art. 341 do CPC), pedidos. Recursos: cabimento, tempestividade (prazo em dobro para a Fazenda Pública, art. 183 do CPC), preparo dispensado (art. 1.007, § 1º), razões e pedido de reforma. Prerrogativas da Fazenda: intimação pessoal, remessa necessária (art. 496), precatório/RPV (art. 100 da CF). Execução fiscal: Lei nº 6.830/1980.
@@ -1314,7 +1314,8 @@ async function chamarApi(messages,system,signal,h,model,tools,maxTokens){
     if(!r.ok){let m=`HTTP ${r.status}`;try{const j=await r.json();m=(j.error&&j.error.message)||m;}catch(e){}
       if(pausado&&/prefill/i.test(m)){ // continuação de pause_turn recusada como prefill: descarta server tools pendentes, fecha o turno e pede para continuar
         pausado=false;const u=msgs[msgs.length-1];if(u&&u.role==='assistant'&&Array.isArray(u.content)){const ok=new Set(u.content.map(b=>b.tool_use_id).filter(Boolean));u.content=u.content.filter(b=>b.type!=='server_tool_use'||ok.has(b.id));if(!u.content.length)msgs.pop();}
-        if(msgs.length&&msgs[msgs.length-1].role!=='user')msgs.push({role:'user',content:CONTINUE});rodada--;continue;}
+        if(msgs.length&&msgs[msgs.length-1].role==='assistant'){msgs.push({role:'user',content:CONTINUE});rodada--;continue;} // se o turno pausado ficou vazio, repetir seria o mesmo pedido: devolve o erro
+      }
       const err=new Error(m);err.code='api';throw err;}
     pausado=false;
     const rd=r.body.getReader(),dec=new TextDecoder();let buf='',stop='',stopDet=null;const blocos=[];const base=text;
@@ -1337,6 +1338,8 @@ async function chamarApi(messages,system,signal,h,model,tools,maxTokens){
       if(b.type==='thinking')return {type:'thinking',thinking:b.thinking,signature:b.signature};
       return b.raw; // redacted_thinking, web_search_tool_result, web_fetch_tool_result: devolvidos como vieram
     }).filter(Boolean);
+    const fb=conteudo.map(b=>b.type).lastIndexOf('fallback'); // server-side fallback: antes da fronteira, o doc manda descartar thinking/redacted_thinking/connector_text, tool_use de cliente e server_tool_use sem resultado (o bloco `fallback` fica onde está)
+    if(fb>=0){const ok=new Set(conteudo.map(b=>b.tool_use_id).filter(Boolean));for(let i=fb-1;i>=0;i--){const tp=conteudo[i].type;if(tp==='thinking'||tp==='redacted_thinking'||tp==='connector_text'||tp==='tool_use'||(tp==='server_tool_use'&&!ok.has(conteudo[i].id)))conteudo.splice(i,1);}}
     if(stop==='pause_turn'){msgs.push({role:'assistant',content:conteudo});pausado=true;continue;} // reenviado como está (doc: pause_turn no Opus 5)
     const usos=conteudo.filter(b=>b.type==='tool_use');
     if(stop!=='tool_use'||!usos.length)return text;
