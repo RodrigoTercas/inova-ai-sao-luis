@@ -521,7 +521,7 @@ const SKILLS=[
   txt:'LINGUAGEM SIMPLES: ao produzir versão ao cidadão, use frases de até 20 palavras, voz ativa, vocabulário comum, explique siglas na primeira vez, um assunto por parágrafo, e mantenha datas, prazos e valores exatos.'},
 ];
 const CONECTORES=[['Google Drive','GD','#1E71AF'],['Google Calendar','31','#2E7D4F'],['Gmail','M','#B23A3A']];
-const MODEL_CTX=1000000;const VERSAO='2026-09-15c';
+const MODEL_CTX=1000000;const VERSAO='2026-09-15d';
 const SYSTEM_BASE=`Você é o Inova AI, assistente de redação de atos administrativos, comunicações oficiais e peças judiciais da Prefeitura Municipal de São Luís (MA). Seus usuários são servidores, procuradores e gestores municipais. Você não tem acesso a sistemas: trabalha só com o que o usuário escrever, colar ou anexar na conversa.
 Cite apenas normas que conhece com segurança (Constituição, Lei nº 12.527/2011, Lei nº 14.133/2021, Lei nº 13.709/2018, Lei nº 8.429/1992, Lei nº 9.784/1999 por analogia). Se a resposta depender de norma municipal ou de fato que não tem, diga isso em vez de supor.
 PEÇAS JUDICIAIS (quando o pedido for da Procuradoria): o Município de São Luís é a parte, representado pela Procuradoria-Geral do Município. Estrutura de petição: endereçamento ao juízo, número do processo [PENDÊNCIA], qualificação das partes, síntese dos fatos, fundamentos de direito (só dispositivos que conhece com segurança; jurisprudência vira [JURISPRUDÊNCIA A SER INSERIDA PELO PROCURADOR APÓS PESQUISA PRÓPRIA]), pedidos numerados, provas, valor da causa quando cabível, local, data e "[NOME] / Procurador(a) do Município / OAB/MA [NÚMERO]". Contestação: preliminares antes do mérito, impugnação específica dos fatos (art. 341 do CPC), pedidos. Recursos: cabimento, tempestividade (prazo em dobro para a Fazenda Pública, art. 183 do CPC), preparo dispensado (art. 1.007, § 1º), razões e pedido de reforma. Prerrogativas da Fazenda: intimação pessoal, remessa necessária (art. 496), precatório/RPV (art. 100 da CF). Execução fiscal: Lei nº 6.830/1980.
@@ -1293,24 +1293,30 @@ async function gerarDocx(root,logo){
 }
 
 /* ---------- API da Anthropic (fora do claude.ai) ---------- */
-function ferramentasWeb(model){ // como no portal: variante moderna nos modelos atuais
-  return /(opus-(4-[678]|5))|(sonnet-(4-6|5))|fable/.test(model)?[{type:'web_search_20260209',name:'web_search',max_uses:8},{type:'web_fetch_20260209',name:'web_fetch',max_uses:8}]:[{type:'web_search_20250305',name:'web_search',max_uses:8},{type:'web_fetch_20250910',name:'web_fetch',max_uses:8}];
+function ferramentasWeb(model){ // como no portal: variante moderna nos modelos atuais; chamada DIRETA (sem filtragem dinâmica, que provisiona um code_execution cujo reenvio exige container/caller)
+  return /(opus-(4-[678]|5))|(sonnet-(4-6|5))|fable/.test(model)?[{type:'web_search_20260209',name:'web_search',max_uses:8,allowed_callers:['direct']},{type:'web_fetch_20260209',name:'web_fetch',max_uses:8,allowed_callers:['direct']}]:[{type:'web_search_20250305',name:'web_search',max_uses:8},{type:'web_fetch_20250910',name:'web_fetch',max_uses:8}];
 }
 async function chamarApi(messages,system,signal,h,model,tools,maxTokens){
   h=typeof h==='function'?{onText:h}:(h||{});tools=tools||[];model=model||S.api.model;
   const msgs=messages.map(m=>({...m}));let text='';
-  const moderno=/(opus-5|sonnet-5|fable|opus-4-[78])/.test(model);
+  const CONTINUE='Continue de onde parou, sem repetir o que já escreveu.';
+  while(msgs.length&&msgs[0].role!=='user')msgs.shift();
+  if(msgs.length&&msgs[msgs.length-1].role!=='user')msgs.push({role:'user',content:CONTINUE}); // o histórico não pode terminar em assistant (Opus 5/Fable não aceitam prefill); dentro do laço, pause_turn e tool_use seguem o fluxo documentado dos server tools
+  let pausado=false;
   for(let rodada=0;rodada<10;rodada++){
     const body={model,max_tokens:Math.min(maxTokens||64000,/haiku-4-5/.test(model)?64000:128000),system,messages:msgs,stream:true,
       thinking:/haiku-4-5/.test(model)?{type:'enabled',budget_tokens:2000}:{type:'adaptive',display:'summarized'},
       tools:[...ferramentasWeb(model),...tools.map(t=>({name:t.name,description:t.description,input_schema:t.inputSchema||{type:'object',properties:{}}}))]};
     const headers={'content-type':'application/json','x-api-key':S.api.key,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'};
     if(/opus-5|fable/.test(model)){headers['anthropic-beta']='server-side-fallback-2026-07-01';body.fallbacks='default';}
-    if(msgs.length&&msgs[msgs.length-1].role!=='user')msgs.push({role:'user',content:'Continue de onde parou, sem repetir o que já escreveu.'}); // Opus 5/Fable não aceitam terminar em assistant (prefill)
-    while(msgs.length&&msgs[0].role!=='user')msgs.shift();
     body.messages=msgs;
     const r=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',signal,headers,body:JSON.stringify(body)});
-    if(!r.ok){let m=`HTTP ${r.status}`;try{const j=await r.json();m=(j.error&&j.error.message)||m;}catch(e){}const err=new Error(m);err.code='api';throw err;}
+    if(!r.ok){let m=`HTTP ${r.status}`;try{const j=await r.json();m=(j.error&&j.error.message)||m;}catch(e){}
+      if(pausado&&/prefill/i.test(m)){ // continuação de pause_turn recusada como prefill: descarta server tools pendentes, fecha o turno e pede para continuar
+        pausado=false;const u=msgs[msgs.length-1];if(u&&u.role==='assistant'&&Array.isArray(u.content)){const ok=new Set(u.content.map(b=>b.tool_use_id).filter(Boolean));u.content=u.content.filter(b=>b.type!=='server_tool_use'||ok.has(b.id));if(!u.content.length)msgs.pop();}
+        if(msgs.length&&msgs[msgs.length-1].role!=='user')msgs.push({role:'user',content:CONTINUE});rodada--;continue;}
+      const err=new Error(m);err.code='api';throw err;}
+    pausado=false;
     const rd=r.body.getReader(),dec=new TextDecoder();let buf='',stop='',stopDet=null;const blocos=[];const base=text;
     for(;;){const {value,done}=await rd.read();if(done)break;buf+=dec.decode(value,{stream:true});
       const lines=buf.split('\n');buf=lines.pop();
@@ -1327,11 +1333,11 @@ async function chamarApi(messages,system,signal,h,model,tools,maxTokens){
     if(stop==='refusal'){const err=new Error('A IA recusou esta solicitação'+(stopDet&&stopDet.category?` (categoria: ${stopDet.category})`:'')+'.');err.code='refusal';throw err;}
     const conteudo=blocos.filter(Boolean).map(b=>{ // blocos de texto vazios são descartados (a API rejeita texto só de espaços)
       if(b.type==='text')return (b.text||'').trim()?{type:'text',text:b.text}:null;
-      if(b.type==='tool_use'||b.type==='server_tool_use'){let input={};try{input=JSON.parse(b.json||'{}');}catch(e){}return {type:b.type,id:b.id,name:b.name,input};}
+      if(b.type==='tool_use'||b.type==='server_tool_use'){let input={};try{input=JSON.parse(b.json||'{}');}catch(e){}return {...b.raw,input};}
       if(b.type==='thinking')return {type:'thinking',thinking:b.thinking,signature:b.signature};
       return b.raw; // redacted_thinking, web_search_tool_result, web_fetch_tool_result: devolvidos como vieram
     }).filter(Boolean);
-    if(stop==='pause_turn'){msgs.push({role:'assistant',content:conteudo});continue;}
+    if(stop==='pause_turn'){msgs.push({role:'assistant',content:conteudo});pausado=true;continue;} // reenviado como está (doc: pause_turn no Opus 5)
     const usos=conteudo.filter(b=>b.type==='tool_use');
     if(stop!=='tool_use'||!usos.length)return text;
     msgs.push({role:'assistant',content:conteudo});
