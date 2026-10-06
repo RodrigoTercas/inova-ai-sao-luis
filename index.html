@@ -502,7 +502,10 @@ aside.min .side-foot,.side-foot.col{flex-direction:column;gap:8px;padding:12px 8
 
 <script>
 /* ---------- dados ---------- */
-const ORGAOS=[['Central Permanente de Licitação','CPL'],['Controladoria-Geral do Município','CGM'],['Gabinete do Prefeito','GAB'],['Procuradoria-Geral do Município','PGM'],['Secretaria Municipal da Criança e Assistência Social','SEMCAS'],['Secretaria Municipal de Administração','SEMAD'],['Secretaria Municipal de Educação','SEMED'],['Secretaria Municipal de Fazenda','SEMFAZ'],['Secretaria Municipal de Governo','SEMGOV'],['Secretaria Municipal de Obras e Serviços Públicos','SEMOSP'],['Secretaria Municipal de Saúde','SEMUS'],['Secretaria Municipal de Trânsito e Transportes','SMTT'],['Secretaria Municipal de Urbanismo e Habitação','SEMURH']];
+// Órgãos conforme a página oficial "Secretarias" da Prefeitura (saoluis.ma.gov.br/portal/secretarias), conferida em 06/10/2026 com a lista do portal de legislação.
+// [nome, sigla oficial, etiqueta curta quando não há sigla]. A CPL leva o nome legal (Lei nº 4.537/2005); o site a rotula "Central de Licitações".
+const ORGAOS=[['Agência Municipal de Desenvolvimento Econômico e Social','AMDES'],['Blitz Urbana','','BLITZ'],['Central de Marcação de Consultas','CEMARC'],['Central Permanente de Licitação','CPL'],['Companhia de Limpeza e Serviços Urbanos','COLISEU'],['Conselho Municipal dos Direitos da Criança e do Adolescente','CMDCA'],['Controladoria-Geral do Município','CGM'],['Defesa Civil','','DEFESA CIVIL'],['Escola de Governo e Gestão Municipal','EGGEM'],['Fundação Municipal de Patrimônio Histórico','FUMPH'],['Gabinete da Prefeita','','GABINETE'],['Gabinete da Vice-Prefeitura','','VICE'],['Hospital Municipal Djalma Marques','HMDM'],['Instituto da Cidade, Pesquisa e Planejamento Urbano e Rural','INCID'],['Instituto de Previdência e Assistência do Município','IPAM'],['Instituto Municipal da Paisagem Urbana','IMPUR'],['Junta Militar','','JUNTA'],['Procuradoria Geral do Município','PGM'],['Secretaria Municipal da Criança e Assistência Social','SEMCAS'],['Secretaria Municipal da Mulher','SEMMU'],['Secretaria Municipal de Administração','SEMAD'],['Secretaria Municipal de Agricultura, Pesca e Abastecimento','SEMAPA'],['Secretaria Municipal de Articulação Institucional','SEMAI'],['Secretaria Municipal de Assuntos Políticos','SEMAP'],['Secretaria Municipal de Comunicação','SECOM'],['Secretaria Municipal de Cultura','SECULT'],['Secretaria Municipal de Desenvolvimento Metropolitano','SADEM'],['Secretaria Municipal de Desportos e Lazer','SEMDEL'],['Secretaria Municipal de Educação','SEMED'],['Secretaria Municipal de Fazenda','SEMFAZ'],['Secretaria Municipal de Governança Solidária e Orçamento Participativo','SEMGOP'],['Secretaria Municipal de Governo','SEMGOV'],['Secretaria Municipal de Informação e Tecnologia','SEMIT'],['Secretaria Municipal de Inovação, Sustentabilidade e Projetos Especiais','SEMISPE'],['Secretaria Municipal de Meio Ambiente','SEMMAM'],['Secretaria Municipal de Obras e Serviços Públicos','SEMOSP'],['Secretaria Municipal de Planejamento e Desenvolvimento','SEPLAN'],['Secretaria Municipal de Saúde','SEMUS'],['Secretaria Municipal de Segurança Alimentar','SEMSA'],['Secretaria Municipal de Segurança com Cidadania','SEMUSC'],['Secretaria Municipal de Trânsito e Transportes','SMTT'],['Secretaria Municipal de Turismo','SETUR'],['Secretaria Municipal de Urbanismo e Habitação','SEMURH'],['Secretaria Municipal Extraordinária da Pessoa com Deficiência','SEMEPED']];
+const ORGAO_ANTIGO={'Comissão Permanente de Licitação':'Central Permanente de Licitação','Gabinete do Prefeito':'Gabinete da Prefeita','Procuradoria-Geral do Município':'Procuradoria Geral do Município'}; // nomes de versões anteriores da página
 const ASSISTENTES=[
  {id:'oficios',nome:'Redator de Ofícios e Memorandos',desc:'Comunicações oficiais entre órgãos e a terceiros, no padrão de redação oficial.',ic:'M4 4h16v16H4zM8 9h8M8 13h8M8 17h5',
   prompt:'Você atua como redator de ofícios e memorandos. Sempre pergunte (ou marque como pendência) destinatário, cargo, assunto, processo SEI e prazo. Entregue o ato completo no bloco de minuta.'},
@@ -536,7 +539,7 @@ const SKILLS=[
   txt:'LINGUAGEM SIMPLES: ao produzir versão ao cidadão, use frases de até 20 palavras, voz ativa, vocabulário comum, explique siglas na primeira vez, um assunto por parágrafo, e mantenha datas, prazos e valores exatos.'},
 ];
 
-const MODEL_CTX=1000000;const VERSAO='2026-09-29a';
+const MODEL_CTX=1000000;const VERSAO='2026-10-06a';
 const SYSTEM_BASE=`Você é o Inova AI, assistente de redação de atos administrativos, comunicações oficiais e peças judiciais da Prefeitura Municipal de São Luís (MA). Seus usuários são servidores, procuradores e gestores municipais. Você não tem acesso a sistemas: trabalha só com o que o usuário escrever, colar ou anexar na conversa.
 Cite apenas normas que conhece com segurança (Constituição, Lei nº 12.527/2011, Lei nº 14.133/2021, Lei nº 13.709/2018, Lei nº 8.429/1992, Lei nº 9.784/1999 por analogia). Se a resposta depender de norma municipal ou de fato que não tem, diga isso em vez de supor.
 PEÇAS JUDICIAIS (quando o pedido for da Procuradoria): o Município de São Luís é a parte, representado pela Procuradoria-Geral do Município. Estrutura de petição: endereçamento ao juízo, número do processo [PENDÊNCIA], qualificação das partes, síntese dos fatos, fundamentos de direito (só dispositivos que conhece com segurança; jurisprudência vira [JURISPRUDÊNCIA A SER INSERIDA PELO PROCURADOR APÓS PESQUISA PRÓPRIA]), pedidos numerados, provas, valor da causa quando cabível, local, data e "[NOME] / Procurador(a) do Município / OAB/MA [NÚMERO]". Contestação: preliminares antes do mérito, impugnação específica dos fatos (art. 341 do CPC), pedidos. Recursos: cabimento, tempestividade (prazo em dobro para a Fazenda Pública, art. 183 do CPC), preparo dispensado (art. 1.007, § 1º), razões e pedido de reforma. Prerrogativas da Fazenda: intimação pessoal, remessa necessária (art. 496), precatório/RPV (art. 100 da CF). Execução fiscal: Lei nº 6.830/1980.
@@ -569,6 +572,7 @@ try{const s=JSON.parse(localStorage.getItem(LS)||'null');if(s&&Array.isArray(s.c
 if(!S.mig55){if(S.api.model==='claude-opus-5')S.api.model='claude-opus-5-5';S.mig55=true;} // uma vez: quem estava no padrão antigo (Opus 5) passa ao Opus 5.5; escolha posterior do Opus 5 é respeitada
 S.google=Object.assign({clientId:'',on:{},email:''},S.google&&typeof S.google==='object'?S.google:{});if(!S.google.on||typeof S.google.on!=='object')S.google.on={};
 if(!S.kb||typeof S.kb!=='object')S.kb={};
+if(ORGAO_ANTIGO[S.orgao])S.orgao=ORGAO_ANTIGO[S.orgao];
 function save(){try{localStorage.setItem(LS,JSON.stringify({...S,convs:S.convs.slice(0,40)},(k,v)=>k==='pdf'||k==='fichas'?undefined:v));}catch(e){}}
 const $=(id)=>document.getElementById(id);
 const dentroApp=()=>!!(window.claude&&window.claude.use)||/claude\.ai$|claudeusercontent\.com$/.test(location.hostname);
@@ -630,7 +634,10 @@ function md(src,plain){
   }
   closeList();return out.join('');
 }
-const sigla=()=>(ORGAOS.find(o=>o[0]===S.orgao)||['','PMSL'])[1];
+const orgaoAtual=()=>ORGAOS.find(o=>o[0]===S.orgao);
+const sigla=()=>{const o=orgaoAtual();return o?(o[1]||o[2]||''):'PMSL';}; // sigla oficial ou, na falta dela, a etiqueta curta: só para a tela
+const siglaArq=()=>sigla().replace(/\s+/g,'-'); // para nome de arquivo
+const orgaoRef=()=>{const o=orgaoAtual();return S.orgao+(o&&o[1]?` (${o[1]})`:'');}; // no texto que vai à IA só entra sigla oficial
 const conv=()=>S.convs.find(c=>c.id===S.atual);
 const ROTULO={pasta_listar:'Listando a pasta conectada',pasta_ler:'Lendo arquivo da pasta',pasta_escrever:'Gravando arquivo na pasta',pasta_criar:'Criando pasta',skill_carregar:'Carregando skill',abrir_minuta:'Abrindo o Editor de Minuta',web_search:'Pesquisando na web',web_fetch:'Lendo página da web'};
 let skillsForcadas=false; // com arquivo anexado, TODAS as skills carregadas entram na execução
@@ -650,7 +657,7 @@ function extrasSystem(){
     for(const k of gOn())if(S.kb[k])s+=`\n\n[BASE ATIVA: ${GSVC[k].nome}. Use as ferramentas de ${GSVC[k].uso} POR INICIATIVA PRÓPRIA: pesquise antes de responder, sem esperar o usuário pedir, e cite as fontes.]`;
   }else s+='\n\n[Os conectores do Google não estão ligados nesta página. Se o usuário pedir algo do Drive, da Agenda ou do Gmail, oriente a conectar em Configurações → Conectores (fora do claude.ai, com a chave da API).]';
   s+='\n\n[Quando o usuário pedir a minuta, o ofício, a portaria, o parecer, o despacho ou o ato, ESCREVA o ato como sua resposta e em seguida chame a ferramenta abrir_minuta para levá-lo ao Editor de Minuta.]';
-  s+=`\n\n[CONTEXTO: agora é ${new Date().toLocaleString('pt-BR',{dateStyle:'full',timeStyle:'short'})}. Órgão do usuário: ${S.orgao} (${sigla()}), Prefeitura Municipal de São Luís (MA).]`;
+  s+=`\n\n[CONTEXTO: agora é ${new Date().toLocaleString('pt-BR',{dateStyle:'full',timeStyle:'short'})}. Órgão do usuário: ${orgaoRef()}, Prefeitura Municipal de São Luís (MA).]`;
   return s;
 }
 /* Claude do app (sample) aceita no máximo 64 KiB por pedido. Monta o turno cortando pela ordem de menor perda:
@@ -784,7 +791,7 @@ function estimarTokens(){ // ponytail: heurística chars/4, como no portal
 }
 
 /* ---------- entrada ---------- */
-$('grid-org').innerHTML=ORGAOS.map(([n,s])=>`<button class="org" data-orgao="${esc(n)}"><small>${s}</small><b>${esc(n)}</b></button>`).join('');
+$('grid-org').innerHTML=ORGAOS.map(([n,s,e])=>`<button class="org" data-orgao="${esc(n)}"><small>${s||e}</small><b>${esc(n)}</b></button>`).join('');
 $('grid-org').onclick=e=>{const b=e.target.closest('[data-orgao]');if(!b)return;S.nome='';S.orgao=b.dataset.orgao;save();entrar();};
 $('btnTrocar').onclick=()=>{$('app').hidden=true;$('entrada').hidden=false;};
 function entrar(){
@@ -1332,7 +1339,7 @@ async function processarAnalise(c,text,anx,a){
   const asst={role:'assistant',content:'',steps:[],pens:'',status:'Preparando a análise',tipo:'analise',assistente:a.id,userIdx:c.msgs.length-1};c.msgs.push(asst);
   skillsForcadas=true;asst.steps.push({label:`Assistente "${a.nome}" + todas as skills carregadas aplicadas obrigatoriamente`,st:'ok'});
   save();showView('chat');$('compConv').querySelector('.inp').value='';abort=new AbortController();refreshComp();
-  const ctx=`Órgão: ${S.orgao} (${sigla()}), Prefeitura Municipal de São Luís`+(text?`\nInstrução do usuário: ${text}`:'');
+  const ctx=`Órgão: ${orgaoRef()}, Prefeitura Municipal de São Luís`+(text?`\nInstrução do usuário: ${text}`:'');
   const content=[...arquivosBaseBlocos(a),...blocosUsuario({anexos:anx,content:instrucoesAnalise(ctx)},'DOCUMENTO')];
   let full='';
   try{
@@ -1394,7 +1401,7 @@ async function gerarMinuta(i,instrucoes){
   const c=conv();const m=c.msgs[i];if(!m||abort)return;
   const a=allAst().find(x=>x.id===m.assistente)||allAst().find(x=>x.id===modo);const user=c.msgs[m.userIdx]||{anexos:[],content:''};
   const sel=(m.dados.vulnerabilidades||[]).filter((_,k)=>!m.vsel||m.vsel.includes(k));
-  const ctx=`- Órgão: ${S.orgao} (${sigla()})\n- Documentos: ${(user.anexos||[]).map(x=>x.name).join(', ')||'nenhum'}\n- Contexto informado: ${user.content||'—'}`;
+  const ctx=`- Órgão: ${orgaoRef()}\n- Documentos: ${(user.anexos||[]).map(x=>x.name).join(', ')||'nenhum'}\n- Contexto informado: ${user.content||'—'}`;
   const content=[...(a?arquivosBaseBlocos(a):[]),...blocosUsuario({anexos:user.anexos||[],content:promptMinuta(sel,instrucoes,ctx)},'DOCUMENTO')];
   const asst={role:'assistant',content:'',steps:[],pens:'',status:'Gerando a minuta',tipo:'minuta',origem:i};c.msgs.push(asst);
   skillsForcadas=true;abort=new AbortController();renderMsgs();refreshComp();
@@ -1429,8 +1436,8 @@ $('msgs').addEventListener('click',async e=>{
   const flash=t=>{const o=b.textContent;b.textContent=t;b.disabled=true;setTimeout(()=>{b.textContent=o;b.disabled=false;},2200);};
   try{
     if(b.dataset.act==='copiar'){await navigator.clipboard.writeText(txt);flash('Copiado');}
-    if(b.dataset.act==='baixar'){await downloads.save({filename:`minuta-${sigla()}-${stamp}.md`,data:txt});flash('Salvo');}
-    if(b.dataset.act==='pasta'){const nome=await pedir('Salvar como (caminho dentro da pasta):',`minuta-${sigla()}-${stamp}.md`,'Salvar');if(!nome)return;await pastaEscrever(nome,txt);flash('Salvo na pasta');}
+    if(b.dataset.act==='baixar'){await downloads.save({filename:`minuta-${siglaArq()}-${stamp}.md`,data:txt});flash('Salvo');}
+    if(b.dataset.act==='pasta'){const nome=await pedir('Salvar como (caminho dentro da pasta):',`minuta-${siglaArq()}-${stamp}.md`,'Salvar');if(!nome)return;await pastaEscrever(nome,txt);flash('Salvo na pasta');}
   }catch(err){flash('Falhou');avisar(err.message||err);}
 });
 
@@ -1459,7 +1466,7 @@ function editorHtml(){const d=$('editorDoc').cloneNode(true);d.querySelectorAll(
 $('edSalvar').onclick=()=>{if(edCtx&&edCtx.msg){edCtx.msg.minuta=editorHtml();save();toast('Minuta salva');}else toast('Nada para salvar');};
 $('edCopiar').onclick=async()=>{const html=editorHtml(),txt=$('editorDoc').innerText;try{await navigator.clipboard.write([new ClipboardItem({'text/html':new Blob([html],{type:'text/html'}),'text/plain':new Blob([txt],{type:'text/plain'})})]);}catch(e){await navigator.clipboard.writeText(txt);}toast('Copiado');};
 $('edExportar').onclick=e=>{e.stopPropagation();$('edExpMenu').hidden=!$('edExpMenu').hidden;};
-$('edExpMenu').onclick=async e=>{const b=e.target.closest('[data-exp]');if(!b)return;$('edExpMenu').hidden=true;const stamp=new Date().toISOString().slice(0,10);const nome=`minuta-${sigla()}-${stamp}`;
+$('edExpMenu').onclick=async e=>{const b=e.target.closest('[data-exp]');if(!b)return;$('edExpMenu').hidden=true;const stamp=new Date().toISOString().slice(0,10);const nome=`minuta-${siglaArq()}-${stamp}`;
   try{
     if(b.dataset.exp==='pdf')window.print();
     else if(b.dataset.exp==='txt')await baixar(nome+'.txt',$('editorDoc').innerText,'text/plain');
@@ -1467,7 +1474,7 @@ $('edExpMenu').onclick=async e=>{const b=e.target.closest('[data-exp]');if(!b)re
   }catch(err){avisar('Falha ao exportar: '+(err.message||err));}
 };
 $('edRegenerar').onclick=async()=>{if(!edCtx||!edCtx.msg)return;const c=S.convs.find(x=>x.id===edCtx.conv);const i=c.msgs.indexOf(edCtx.msg);const ins=await pedir('Instruções adicionais para regenerar a minuta:',edCtx.msg.instrucoes||'');if(ins===null)return;S.atual=c.id;showView('chat');gerarMinuta(i,ins.trim());};
-$('edPasta').onclick=async()=>{const nome=await pedir('Salvar como (caminho dentro da pasta):',`minuta-${sigla()}-${new Date().toISOString().slice(0,10)}.html`);if(!nome)return;try{await pastaEscrever(nome,/\.(txt|md)$/i.test(nome)?$('editorDoc').innerText:`<!doctype html><meta charset="utf-8">${editorHtml()}`);toast('Salvo na pasta');}catch(e){avisar(e.message||e);}};
+$('edPasta').onclick=async()=>{const nome=await pedir('Salvar como (caminho dentro da pasta):',`minuta-${siglaArq()}-${new Date().toISOString().slice(0,10)}.html`);if(!nome)return;try{await pastaEscrever(nome,/\.(txt|md)$/i.test(nome)?$('editorDoc').innerText:`<!doctype html><meta charset="utf-8">${editorHtml()}`);toast('Salvo na pasta');}catch(e){avisar(e.message||e);}};
 async function baixar(nome,dados,tipo){
   if(downloads){await downloads.save({filename:nome,data:dados});toast('Salvo');return;}
   const url=URL.createObjectURL(new Blob([dados],{type:tipo}));const a=document.createElement('a');a.href=url;a.download=nome;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),4000);
@@ -1660,7 +1667,7 @@ $('cImport').onclick=async()=>{
     let k=0;for(const s of (d.skillsC||[])){if(s&&s.id&&s.nome&&s.txt&&!S.skillsC.find(x=>x.id===s.id)){S.skillsC.push(s);k++;}}
     if(d.skillsOn&&typeof d.skillsOn==='object')Object.assign(S.skillsOn,d.skillsOn);
     if(d.api&&typeof d.api==='object'){S.api={key:String(d.api.key||S.api.key||''),model:String(d.api.model||S.api.model),preferir:!!d.api.preferir};}
-    if(d.orgao&&ORGAOS.find(o=>o[0]===d.orgao)&&!S.orgao)S.orgao=d.orgao;
+    {const og=ORGAO_ANTIGO[d.orgao]||d.orgao;if(og&&ORGAOS.find(o=>o[0]===og)&&!S.orgao)S.orgao=og;}
  if(d.google&&typeof d.google.clientId==='string'&&d.google.clientId.trim()&&!S.google.clientId)S.google.clientId=d.google.clientId.trim();
     save();renderCfg();refreshComp();$('cIoMsg').textContent=`Importado: ${n} assistente(s), ${k} skill(s)${d.api&&d.api.key?', chave de API':''}.`;$('cIoMsg').hidden=false;
   }catch(e){avisar('Falha ao importar: '+(e.message||e));}
