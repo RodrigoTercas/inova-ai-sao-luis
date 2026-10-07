@@ -35,8 +35,15 @@ button[disabled]{opacity:.5;cursor:default}
 svg.i{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex:none}
 
 /* ===== tela de entrada (portal da Prefeitura) ===== */
-#entrada{flex:1;overflow:auto;background:linear-gradient(180deg,var(--hero) 0,var(--hero) 250px,var(--bg) 250px)}
-#entrada .wrap{max-width:980px;margin:0 auto;padding:22px 18px 40px}
+#entrada{flex:1;min-height:0;display:flex;flex-direction:column;background:var(--bg)}
+#entrada .topo{flex:none;background:var(--hero)} /* cabeçalho e título ficam parados */
+#entrada .rolagem{flex:1;min-height:0;overflow:auto} /* só a lista de órgãos rola, sempre na parte clara */
+#entrada .wrap{max-width:980px;margin:0 auto;padding:22px 18px 0}
+#entrada .rolagem .wrap{padding:18px 18px 40px}
+#entrada .sec-title{margin:22px 0 16px;color:#fff}
+#entrada .sec-title::before{background:#fff}
+#entrada .topo .aviso{margin-bottom:16px;background:rgba(255,255,255,.14);color:#fff;border-radius:10px;padding:10px 12px;font-size:13px;line-height:1.5}
+@media (max-height:560px){#entrada{display:block;overflow:auto}#entrada .rolagem{overflow:visible}} /* tela baixa: volta a rolar a página inteira */
 #entrada header{background:var(--surface);border-radius:14px;box-shadow:var(--shadow);display:flex;align-items:center;gap:22px;padding:14px 24px;flex-wrap:wrap}
 #entrada .logo-pref{width:210px;height:58px}
 .brand{display:flex;flex-direction:column;line-height:1.15;border-left:1px solid var(--line);padding-left:18px}
@@ -308,6 +315,13 @@ aside.min .side-foot,.side-foot.col{flex-direction:column;gap:8px;padding:12px 8
 .modal input{width:100%;box-sizing:border-box;padding:9px 12px;border:1px solid var(--line);border-radius:10px;font:inherit}
 .modal .row{display:flex;gap:8px;justify-content:flex-end}
 .modal .btn-p.perigo{background:var(--bad);border-color:var(--bad)}
+.modal h2{margin:0;font:600 17px var(--sans)}
+.modal label{display:block;font:500 13px var(--sans)}
+.modal label input{margin-top:6px}
+.modal .aviso{font-size:13px;color:var(--muted);background:var(--surface-2);border-radius:10px;padding:10px 12px;line-height:1.5}
+.modal .err{color:var(--bad);font-size:13px}
+.modal .row{flex-wrap:wrap}
+.org small span{color:var(--muted);letter-spacing:0}
 #toast{position:fixed;left:50%;bottom:28px;transform:translate(-50%,20px);background:var(--ink);color:#fff;padding:9px 16px;border-radius:999px;font-size:13px;opacity:0;pointer-events:none;transition:.2s;z-index:50}
 #toast.on{opacity:1;transform:translate(-50%,0)}
 .skill .acts2{display:flex;align-items:center;gap:2px;flex:none}
@@ -344,7 +358,7 @@ aside.min .side-foot,.side-foot.col{flex-direction:column;gap:8px;padding:12px 8
 </style>
 
 <!-- ===================== ENTRADA ===================== -->
-<section id="entrada"><div class="wrap">
+<section id="entrada"><div class="topo"><div class="wrap">
   <header>
     <div class="logo-pref" role="img" aria-label="Prefeitura de São Luís, por uma cidade melhor"></div>
     <div class="brand"><h1>Inova <em>AI</em></h1><span>Atos administrativos e judiciais</span></div>
@@ -357,9 +371,11 @@ aside.min .side-foot,.side-foot.col{flex-direction:column;gap:8px;padding:12px 8
     </nav>
   </header>
   <div class="sec-title">Escolha o seu órgão</div>
-  <div class="grid-org" id="grid-org" style="margin-top:14px"></div>
+  <div class="aviso" id="avisoLegado" role="status" hidden></div>
+</div></div><div class="rolagem"><div class="wrap">
+  <div class="grid-org" id="grid-org"></div>
   <div class="rodape"><span>Prefeitura Municipal de São Luís · MA</span><span class="regua"></span><span>Desenvolvido por</span><span class="logo-inova" role="img" aria-label="INOVAJUR"></span></div>
-</div></section>
+</div></div></section>
 
 <!-- ===================== APP ===================== -->
 <section id="app" hidden>
@@ -377,7 +393,7 @@ aside.min .side-foot,.side-foot.col{flex-direction:column;gap:8px;padding:12px 8
       <div class="lbl">Análises recentes</div>
       <div class="recentes" id="recentes"></div>
     </div>
-    <div class="side-foot"><span class="avatar" id="avatar">??</span><div><b id="footNome">Servidor</b><small id="footOrg">Prefeitura de São Luís</small></div><button class="gear" id="btnCfg" title="Configurações: API e conectores"><svg class="i" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 000 1.82l.06.06a2 2 0 01-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg></button></div>
+    <div class="side-foot"><span class="avatar" id="avatar">??</span><div><b id="footNome">Servidor</b><small id="footOrg">Prefeitura de São Luís</small></div><button class="gear" id="btnSair" title="Sair do perfil (pede a senha para voltar)" aria-label="Sair do perfil"><svg class="i" viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 018 0v4"/></svg></button><button class="gear" id="btnCfg" title="Configurações: API e conectores"><svg class="i" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 000 1.82l.06.06a2 2 0 01-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg></button></div>
   </aside>
 
   <div class="main">
@@ -396,7 +412,7 @@ aside.min .side-foot,.side-foot.col{flex-direction:column;gap:8px;padding:12px 8
     <!-- assistentes -->
     <div class="view page" id="vAssistentes" hidden>
       <div class="page-head"><div><h1>Assistentes Virtuais</h1><p class="sub">Especialistas prontos para os atos da Prefeitura, e os que você criar. Escolha um e ele passa a orientar a conversa.</p></div><button class="btn-p" id="btnNovoAst"><svg class="i" viewBox="0 0 24 24" style="width:16px;height:16px"><path d="M12 5v14M5 12h14"/></svg>Novo assistente</button></div>
-      <form class="form" id="formAst" hidden>
+      <form class="form" id="formAst" autocomplete="off" hidden>
         <h2 id="formAstTitulo">Novo assistente</h2>
         <div><label>Nome</label><input type="text" id="fNome" required placeholder="Ex.: Redator de Portarias da SEMAD"></div>
         <div><label>Descrição</label><input type="text" id="fDesc" placeholder="Uma linha sobre o que este assistente faz"></div>
@@ -407,14 +423,14 @@ aside.min .side-foot,.side-foot.col{flex-direction:column;gap:8px;padding:12px 8
         <div class="err" id="fErr" hidden></div>
         <div class="row"><button type="button" class="btn-s" id="fCancel">Cancelar</button><button type="submit" class="btn-p" id="fSalvar">Salvar assistente</button></div>
       </form>
-      <div class="busca"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg><input type="text" id="buscaAst" placeholder="Buscar assistente…"></div>
+      <div class="busca"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg><input type="text" id="buscaAst" autocomplete="off" placeholder="Buscar assistente…"></div>
       <div class="cards" id="cardsAst"></div>
     </div>
     <!-- skills -->
     <div class="view page" id="vSkills" hidden>
       <div class="page-head"><div><h1>Skills</h1><p class="sub">Blocos de instruções reutilizáveis, como as skills do Claude. Ligue-as por conversa no menu "+" do chat, ou marque como <b>sempre ativa</b> para valer em todos os pedidos.</p></div><div style="display:flex;gap:8px;flex:none"><button class="btn-s" id="btnImportSk" title="Importar pacote .skill/.zip (SKILL.md + todos os elementos, como no Claude) ou SKILL.md avulso">⬆ Importar skill</button><button class="btn-p" id="btnNovaSk"><svg class="i" viewBox="0 0 24 24" style="width:16px;height:16px"><path d="M12 5v14M5 12h14"/></svg>Nova skill</button></div></div>
       <div class="err" id="skMsg" hidden style="margin-bottom:14px;font-size:13px"></div>
-      <form class="form" id="formSk" hidden>
+      <form class="form" id="formSk" autocomplete="off" hidden>
         <h2 id="formSkTitulo">Nova skill</h2>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px"><div><label>Nome</label><input type="text" id="sNome" required placeholder="Ex.: Verificação de fontes oficiais"></div><div><label>Descrição = gatilho <small>(quando a IA deve acionar)</small></label><input type="text" id="sDesc" placeholder="Ex.: sempre que houver documento anexado ou texto de terceiros a analisar"></div></div>
         <div><label>Instruções da skill <span class="cnt" id="sCnt">0 / 100.000</span></label><textarea id="sTxt" required placeholder="Instruções que serão somadas ao prompt quando a skill estiver ativa…"></textarea></div>
@@ -448,7 +464,7 @@ aside.min .side-foot,.side-foot.col{flex-direction:column;gap:8px;padding:12px 8
       <h1>Configurações</h1><p class="sub">Cadastro da chave de API, escolha do modelo e conectores do Inova AI.</p>
       <form class="form" id="formCfg">
         <h2>Motor de IA</h2>
-        <div class="aviso" id="cAviso"><b>Dentro do claude.ai</b> a página usa o Claude do seu próprio app, sem chave. <b>Fora dele</b> (arquivo local ou site da Prefeitura), informe uma chave da API da Anthropic: ela fica guardada só neste navegador, nunca no arquivo da página. Dentro do claude.ai a chamada direta à API é bloqueada pelo próprio app.</div>
+        <div class="aviso" id="cAviso"><b>Dentro do claude.ai</b> a página usa o Claude do seu próprio app, sem chave. <b>Fora dele</b> (arquivo local ou site da Prefeitura), informe uma chave da API da Anthropic: ela fica guardada só neste navegador, cifrada com a senha do perfil, nunca no arquivo da página. Dentro do claude.ai a chamada direta à API é bloqueada pelo próprio app.</div>
         <div class="aviso" id="cDiag" hidden></div>
         <div class="err" id="cBloq" hidden><b>Esta página está aberta dentro do claude.ai:</b> a API não pode ser usada aqui, mesmo com chave válida. A chave fica salva para quando a página for aberta fora do claude.ai (arquivo local ou site). Use "Exportar tudo" abaixo para levar assistentes, skills e chave para a cópia local.</div>
         <div><label>Chave da API da Anthropic <small>(sk-ant-…)</small></label><input type="password" id="cKey" autocomplete="off" placeholder="Cole aqui a sua chave"></div>
@@ -458,9 +474,19 @@ aside.min .side-foot,.side-foot.col{flex-direction:column;gap:8px;padding:12px 8
         <div class="err" id="cErr" hidden></div><div class="ok" id="cOk" hidden></div>
         <div class="row"><button type="button" class="btn-s" id="cTest">Testar chave</button><button type="submit" class="btn-p">Salvar</button></div>
       </form>
+      <form class="form" id="formSenha">
+        <h2>Perfil e senha</h2>
+        <div class="aviso">Este é o perfil de <b id="cPerfilNome"></b>. Conversas, assistentes, skills e chave de API ficam cifrados com a senha deste perfil, só neste navegador, e não aparecem nos perfis dos outros órgãos. Não existe recuperação de senha: quem a esquece precisa apagar o perfil e recomeçar. A exportação abaixo serve de cópia de segurança dos assistentes, das skills e da chave (as conversas não entram nela).</div>
+        <input type="text" id="cPerfilUser" autocomplete="username" readonly hidden>
+        <div><label for="cSenhaAtual">Senha atual</label><input type="password" id="cSenhaAtual" autocomplete="current-password"></div>
+        <div><label for="cSenhaNova">Nova senha <small>(mínimo de 8 caracteres)</small></label><input type="password" id="cSenhaNova" autocomplete="new-password"></div>
+        <div><label for="cSenhaNova2">Repita a nova senha</label><input type="password" id="cSenhaNova2" autocomplete="new-password"></div>
+        <div class="err" id="cSenhaErr" role="alert" hidden></div><div class="ok" id="cSenhaOk" role="status" hidden></div>
+        <div class="row"><button type="button" class="btn-s" id="cSair">Sair do perfil</button><button type="submit" class="btn-p">Alterar senha</button></div>
+      </form>
       <div class="form">
         <h2>Levar para outra cópia</h2>
-        <div class="aviso">Assistentes, skills, órgão e chave ficam no navegador de cada cópia (claude.ai, arquivo local, site). Exporte aqui e importe na outra cópia em Configurações.</div>
+        <div class="aviso">Assistentes, skills e chave ficam no perfil do órgão, no navegador de cada cópia (claude.ai, arquivo local, site). Exporte aqui e importe em Configurações na outra cópia ou em outro perfil. O arquivo exportado não é cifrado.</div>
         <div class="row" style="justify-content:flex-start"><button type="button" class="btn-p" id="cExport">Exportar tudo (.json)</button><button type="button" class="btn-s" id="cImport">Importar (.json)</button></div>
         <div class="ok" id="cIoMsg" hidden></div>
       </div>
@@ -539,7 +565,7 @@ const SKILLS=[
   txt:'LINGUAGEM SIMPLES: ao produzir versão ao cidadão, use frases de até 20 palavras, voz ativa, vocabulário comum, explique siglas na primeira vez, um assunto por parágrafo, e mantenha datas, prazos e valores exatos.'},
 ];
 
-const MODEL_CTX=1000000;const VERSAO='2026-10-06a';
+const MODEL_CTX=1000000;const VERSAO='2026-10-06b';
 const SYSTEM_BASE=`Você é o Inova AI, assistente de redação de atos administrativos, comunicações oficiais e peças judiciais da Prefeitura Municipal de São Luís (MA). Seus usuários são servidores, procuradores e gestores municipais. Você não tem acesso a sistemas: trabalha só com o que o usuário escrever, colar ou anexar na conversa.
 Cite apenas normas que conhece com segurança (Constituição, Lei nº 12.527/2011, Lei nº 14.133/2021, Lei nº 13.709/2018, Lei nº 8.429/1992, Lei nº 9.784/1999 por analogia). Se a resposta depender de norma municipal ou de fato que não tem, diga isso em vez de supor.
 PEÇAS JUDICIAIS (quando o pedido for da Procuradoria): o Município de São Luís é a parte, representado pela Procuradoria-Geral do Município. Estrutura de petição: endereçamento ao juízo, número do processo [PENDÊNCIA], qualificação das partes, síntese dos fatos, fundamentos de direito (só dispositivos que conhece com segurança; jurisprudência vira [JURISPRUDÊNCIA A SER INSERIDA PELO PROCURADOR APÓS PESQUISA PRÓPRIA]), pedidos numerados, provas, valor da causa quando cabível, local, data e "[NOME] / Procurador(a) do Município / OAB/MA [NÚMERO]". Contestação: preliminares antes do mérito, impugnação específica dos fatos (art. 341 do CPC), pedidos. Recursos: cabimento, tempestividade (prazo em dobro para a Fazenda Pública, art. 183 do CPC), preparo dispensado (art. 1.007, § 1º), razões e pedido de reforma. Prerrogativas da Fazenda: intimação pessoal, remessa necessária (art. 496), precatório/RPV (art. 100 da CF). Execução fiscal: Lei nº 6.830/1980.
@@ -566,14 +592,100 @@ const ICONES=[
 const icPath=a=>a.ic||(ICONES.find(i=>i[0]===a.icone)||ICONES[0])[2];
 
 /* ---------- estado ---------- */
-const LS='inova-ai-slz-v2';
-let S={nome:'',orgao:'',convs:[],atual:null,skillsOn:{},view:'chat',min:false,custom:[],skillsC:[],api:{key:'',model:'claude-opus-5-5',preferir:false}};
-try{const s=JSON.parse(localStorage.getItem(LS)||'null');if(s&&Array.isArray(s.convs))S={...S,...s};if(!Array.isArray(S.custom))S.custom=[];if(!Array.isArray(S.skillsC))S.skillsC=[];S.api=Object.assign({key:'',model:'claude-opus-5-5',preferir:false},S.api||{});}catch(e){}
-if(!S.mig55){if(S.api.model==='claude-opus-5')S.api.model='claude-opus-5-5';S.mig55=true;} // uma vez: quem estava no padrão antigo (Opus 5) passa ao Opus 5.5; escolha posterior do Opus 5 é respeitada
-S.google=Object.assign({clientId:'',on:{},email:''},S.google&&typeof S.google==='object'?S.google:{});if(!S.google.on||typeof S.google.on!=='object')S.google.on={};
-if(!S.kb||typeof S.kb!=='object')S.kb={};
-if(ORGAO_ANTIGO[S.orgao])S.orgao=ORGAO_ANTIGO[S.orgao];
-function save(){try{localStorage.setItem(LS,JSON.stringify({...S,convs:S.convs.slice(0,40)},(k,v)=>k==='pdf'||k==='fichas'?undefined:v));}catch(e){}}
+const LS='inova-ai-slz-v2'; // chave antiga (estado único, sem senha): só é lida para migrar ao perfil do órgão
+const S0=()=>({nome:'',orgao:'',convs:[],atual:null,skillsOn:{},view:'chat',min:false,custom:[],skillsC:[],api:{key:'',model:'claude-opus-5-5',preferir:false}});
+function normalizar(s){
+  let n=S0();if(s&&typeof s==='object'&&Array.isArray(s.convs))n={...n,...s};
+  if(!Array.isArray(n.custom))n.custom=[];if(!Array.isArray(n.skillsC))n.skillsC=[];if(!n.skillsOn||typeof n.skillsOn!=='object')n.skillsOn={};
+  n.api=Object.assign({key:'',model:'claude-opus-5-5',preferir:false},n.api||{});
+  if(!n.mig55){if(n.api.model==='claude-opus-5')n.api.model='claude-opus-5-5';n.mig55=true;} // uma vez: quem estava no padrão antigo (Opus 5) passa ao Opus 5.5; escolha posterior do Opus 5 é respeitada
+  n.google=Object.assign({clientId:'',on:{},email:''},n.google&&typeof n.google==='object'?n.google:{});if(!n.google.on||typeof n.google.on!=='object')n.google.on={};
+  if(!n.kb||typeof n.kb!=='object')n.kb={};
+  return n;
+}
+let S=normalizar(null); // vazio até um perfil ser aberto com a senha
+
+/* ---------- perfis: um por órgão, cada um com a própria senha ----------
+   O estado do órgão (conversas, assistentes, skills, chave de API) é cifrado com AES-GCM; a chave sai da senha por PBKDF2 e
+   só existe na memória da aba. Sem a senha os dados não são lidos, nem por outro perfil nem por quem abrir o armazenamento
+   do navegador. Sair do perfil recarrega a página, o que zera tudo o que estava na memória. */
+const PBKDF2_IT=600000,SENHA_MIN=8,PK=LS+':p:',ULT=LS+':ultimo';
+let PERFIL=null; // {k,sal,it,chave} do perfil aberto; null = bloqueado
+let pendente=null,escoando=null,jaGravou=false;
+const lsGet=k=>{try{return localStorage.getItem(k);}catch(e){return null;}};
+const lsDel=k=>{try{localStorage.removeItem(k);}catch(e){}};
+const chavePerfil=n=>[n,...Object.keys(ORGAO_ANTIGO).filter(a=>ORGAO_ANTIGO[a]===n)].map(x=>PK+x).find(k=>lsGet(k))||PK+n; // acha o perfil mesmo que o órgão tenha mudado de nome
+const temPerfil=n=>!!lsGet(chavePerfil(n));
+const limpo=(k,v)=>k==='length'||(/^(id|st|ic|icone|logo|img|pages|tamanho)$/.test(k)&&(typeof v==='object'||/[<>"'&`]/.test(v)))?undefined:v; // descarta, em dados vindos de fora do perfil cifrado, valores que virariam marcação ao serem desenhados
+function legado(){ // dados gravados antes dos perfis (sem senha), com o órgão a que pertencem
+  try{const s=JSON.parse(lsGet(LS)||'null',limpo);if(!s||!Array.isArray(s.convs))return null;const o=ORGAO_ANTIGO[s.orgao]||s.orgao;return {dados:s,orgao:ORGAOS.find(x=>x[0]===o)?o:''};}catch(e){return null;}
+}
+async function derivar(senha,sal,it){
+  const base=await crypto.subtle.importKey('raw',new TextEncoder().encode(senha.normalize('NFC')),'PBKDF2',false,['deriveKey']);
+  return crypto.subtle.deriveKey({name:'PBKDF2',hash:'SHA-256',salt:sal,iterations:it},base,{name:'AES-GCM',length:256},false,['encrypt','decrypt']);
+}
+const gz=async(u,des)=>new Uint8Array(await new Response(new Blob([u]).stream().pipeThrough(des?new DecompressionStream('gzip'):new CompressionStream('gzip'))).arrayBuffer());
+async function cifrar(txt,p){
+  let u=new TextEncoder().encode(txt),z=0;if(window.CompressionStream){u=await gz(u);z=1;} // comprime antes de cifrar: mesmo em base64 o perfil ocupa menos que o texto puro
+  const iv=crypto.getRandomValues(new Uint8Array(12));
+  return JSON.stringify({v:1,it:p.it,sal:b64(p.sal),iv:b64(iv),z,ct:b64(await crypto.subtle.encrypt({name:'AES-GCM',iv},p.chave,u))});
+}
+async function abrirBlob(blob,chave){ // lança OperationError quando a chave (a senha) não confere
+  const u=new Uint8Array(await crypto.subtle.decrypt({name:'AES-GCM',iv:b64bytes(blob.iv)},chave,b64bytes(blob.ct)));
+  return JSON.parse(new TextDecoder().decode(blob.z?await gz(u,true):u));
+}
+async function lerPerfil(nome,senha){
+  const k=chavePerfil(nome),bruto=lsGet(k);if(!bruto)throw new Error('este perfil não está guardado neste navegador');
+  const blob=JSON.parse(bruto),sal=b64bytes(blob.sal),chave=await derivar(senha,sal,blob.it);
+  return {perfil:{k,sal,it:blob.it,chave},estado:await abrirBlob(blob,chave)};
+}
+function save(){ // cifra e grava o perfil aberto. Devolve Promise<boolean>: false = não coube ou o navegador não está guardando
+  if(!PERFIL)return Promise.resolve(false);
+  try{pendente=JSON.stringify({...S,convs:S.convs.slice(0,40)},(k,v)=>k==='pdf'||k==='fichas'?undefined:v);}catch(e){return Promise.resolve(false);}
+  return escoando||(escoando=(async()=>{ // uma gravação por vez; se houver várias na fila, vale a mais recente
+    let ok=false;
+    while(pendente!==null){const t=pendente,p=PERFIL;pendente=null;try{const c=await cifrar(t,p);localStorage.setItem(p.k,c);ok=jaGravou=true;}catch(e){ok=false;}}
+    escoando=null;if(!ok&&!save.avisou)toast('Não foi possível guardar: armazenamento do navegador cheio ou bloqueado');save.avisou=!ok;return ok;
+  })());
+}
+async function aposentarLegado(nome){ // só apaga a cópia sem senha depois de reler o perfil cifrado
+  try{await abrirBlob(JSON.parse(lsGet(PERFIL.k)),PERFIL.chave);lsDel(LS);const h=await kvGet('pasta');if(h){await kvSet('pasta:'+nome,h);kvSet('pasta',null);}}catch(e){}
+}
+async function trocarLegado(){ // o perfil cifrado não coube ao lado da cópia sem senha: cifra e confere na memória, e só então troca uma pela outra (sem espera no meio)
+  const bruto=lsGet(LS);
+  try{
+    const c=await cifrar(JSON.stringify({...S,convs:S.convs.slice(0,40)},(k,v)=>k==='pdf'||k==='fichas'?undefined:v),PERFIL);
+    await abrirBlob(JSON.parse(c),PERFIL.chave);lsDel(LS);
+    try{localStorage.setItem(PERFIL.k,c);}catch(e){localStorage.setItem(LS,bruto);return false;}
+    save.avisou=false;return jaGravou=true;
+  }catch(e){return false;}
+}
+async function criarPerfil(nome,senha){
+  const sal=crypto.getRandomValues(new Uint8Array(16)),chave=await derivar(senha,sal,PBKDF2_IT);
+  if(temPerfil(nome))throw new Error('este perfil já foi criado em outra aba. Cancele e entre com a senha.'); // diálogo de criação esquecido aberto não apaga o perfil criado depois
+  const leg=legado(),herda=!!leg&&(!leg.orgao||leg.orgao===nome);
+  PERFIL={k:PK+nome,sal,it:PBKDF2_IT,chave};
+  S=normalizar(herda?leg.dados:null);S.orgao=nome;save.avisou=herda;
+  let ok=await save();if(!ok&&herda)ok=await trocarLegado();if(ok&&herda)await aposentarLegado(nome);
+  return ok;
+}
+async function abrirPerfil(nome,senha){
+  const r=await lerPerfil(nome,senha);PERFIL=r.perfil;S=normalizar(r.estado);S.orgao=nome;jaGravou=true;
+  if(PERFIL.k!==PK+nome){const velho=PERFIL.k;PERFIL.k=PK+nome;if(await save())lsDel(velho);else PERFIL.k=velho;} // o órgão mudou de nome: o perfil acompanha
+  const leg=legado();
+  if(leg&&leg.orgao===nome&&await confirmar(`Há ${leg.dados.convs.length} conversa(s) e ${(leg.dados.custom||[]).length} assistente(s) deste órgão gravados sem senha neste navegador (por uma aba antiga da página). Juntar ao perfil?`,'Juntar')){ // nada entra num perfil já protegido sem o dono ver
+    for(const c of ['convs','custom','skillsC']){const novos=[];
+      for(const x of (Array.isArray(leg.dados[c])?leg.dados[c]:[])){if(!x||!x.id)continue;const i=S[c].findIndex(y=>y.id===x.id);
+        if(i<0)novos.push(x);else if(c==='convs'&&(x.msgs||[]).length>(S[c][i].msgs||[]).length)S[c][i]=x;}
+      S[c]=c==='convs'?[...novos,...S[c]]:[...S[c],...novos];} // conversas só da aba antiga são as mais recentes: entram na frente, antes do corte de 40
+    if(!S.api.key&&leg.dados.api&&leg.dados.api.key)S.api.key=String(leg.dados.api.key);
+    if(await save()||await trocarLegado())await aposentarLegado(nome);
+  }
+}
+window.addEventListener('storage',e=>{ // outra aba trocou a senha ou apagou este perfil: esta aba sai, para não regravar com a chave antiga
+  if(!PERFIL||(e.key!==null&&e.key!==PERFIL.k))return;let sal='';try{sal=JSON.parse(lsGet(PERFIL.k)).sal;}catch(x){}
+  if(sal!==b64(PERFIL.sal))location.reload();
+});
 const $=(id)=>document.getElementById(id);
 const dentroApp=()=>!!(window.claude&&window.claude.use)||/claude\.ai$|claudeusercontent\.com$/.test(location.hostname);
 const usarApi=()=>!dentroApp()&&!!S.api.key&&(S.api.preferir||!sample);
@@ -791,16 +903,72 @@ function estimarTokens(){ // ponytail: heurística chars/4, como no portal
 }
 
 /* ---------- entrada ---------- */
-$('grid-org').innerHTML=ORGAOS.map(([n,s,e])=>`<button class="org" data-orgao="${esc(n)}"><small>${s||e}</small><b>${esc(n)}</b></button>`).join('');
-$('grid-org').onclick=e=>{const b=e.target.closest('[data-orgao]');if(!b)return;S.nome='';S.orgao=b.dataset.orgao;save();entrar();};
-$('btnTrocar').onclick=()=>{$('app').hidden=true;$('entrada').hidden=false;};
+function renderGrid(){
+  $('grid-org').innerHTML=ORGAOS.map(([n,s,e])=>`<button class="org" data-orgao="${esc(n)}"><small>${s||e}${temPerfil(n)?'<span> · perfil criado</span>':''}</small><b>${esc(n)}</b></button>`).join('');
+  const leg=legado(),av=$('avisoLegado');av.hidden=!leg;if(!leg)return;
+  const qt=`${leg.dados.convs.length} conversa(s), ${(leg.dados.custom||[]).length} assistente(s)`;
+  av.textContent=leg.orgao?`Há dados de ${leg.orgao} guardados sem senha neste navegador (${qt}). Abra o perfil desse órgão: eles passam para o perfil e ficam protegidos pela senha.`
+    :`Há dados guardados sem senha neste navegador (${qt}). O primeiro perfil criado recebe esses dados e passa a protegê-los com a senha.`;
+}
+function dlgPerfil(nome){ // primeiro acesso do órgão neste navegador: cria a senha; depois: pede a senha. Resolve true quando o perfil abriu
+  return new Promise(res=>{
+    const o=ORGAOS.find(x=>x[0]===nome),tag=o[1]||o[2],novo=!temPerfil(nome),leg=legado(),herda=novo&&!!leg&&(!leg.orgao||leg.orgao===nome);
+    const bg=document.createElement('div');bg.className='modal-bg';
+    bg.innerHTML=`<form class="modal" role="dialog" aria-modal="true" aria-labelledby="pfT"><h2 id="pfT">${novo?'Criar perfil':'Entrar no perfil'} · ${esc(tag)}</h2><p>${esc(nome)}</p>
+${novo?`<div class="aviso">Primeiro acesso deste órgão neste navegador. Crie a senha do perfil: conversas, assistentes e chave de API ficam cifrados com ela e não aparecem nos perfis dos outros órgãos.${herda?' Os dados que já estavam nesta página passam para este perfil.':''} <b>Não há recuperação de senha.</b></div>`:''}
+<input type="text" autocomplete="username" value="${esc(nome)}" readonly hidden>
+<label>Senha${novo?` <small>(mínimo de ${SENHA_MIN} caracteres)</small>`:''}<input type="password" name="a" autocomplete="${novo?'new-password':'current-password'}" required></label>
+${novo?'<label>Repita a senha<input type="password" name="b" autocomplete="new-password" required></label>':''}
+<div class="err" role="alert" hidden></div>
+<div class="row">${novo?'':'<button type="button" class="btn-s" data-m="esq" style="margin-right:auto">Esqueci a senha</button>'}<button type="button" class="btn-s" data-m="cancel">Cancelar</button><button type="submit" class="btn-p">${novo?'Criar perfil':'Entrar'}</button></div></form>`;
+    const f=bg.firstChild,a=f.elements.a,err=f.querySelector('.err'),bt=f.querySelector('[type=submit]'),rot=bt.textContent;
+    const fim=v=>{bg.remove();res(v);},falha=t=>{err.textContent=t;err.hidden=false;bt.disabled=false;bt.textContent=rot;a.focus();a.select();};
+    bg.addEventListener('click',async e=>{
+      const m=e.target.closest('[data-m]');if(!m||bt.disabled)return;if(m.dataset.m==='cancel')return fim(false);
+      const t=await pedir(`Sem a senha não é possível ler os dados do perfil ${tag}: eles estão cifrados e ninguém consegue recuperá-los.\n\nPara recomeçar, o perfil precisa ser apagado deste navegador, com as conversas e os assistentes dele. Para confirmar, digite APAGAR.`,'','Apagar perfil');
+      if(t===null){a.focus();return;}
+      if(t.toUpperCase()!=='APAGAR')return falha('Perfil mantido: a confirmação não foi digitada.');
+      lsDel(chavePerfil(nome));kvSet('pasta:'+nome,null);if(lsGet(ULT)===nome)lsDel(ULT);renderGrid();fim(false);toast('Perfil apagado deste navegador');
+    });
+    bg.addEventListener('keydown',e=>{if(e.key==='Escape'&&!bt.disabled)fim(false);});
+    f.onsubmit=async e=>{
+      e.preventDefault();if(bt.disabled)return;const senha=a.value;
+      if(novo&&senha.length<SENHA_MIN)return falha(`A senha precisa ter pelo menos ${SENHA_MIN} caracteres.`);
+      if(novo&&senha!==f.elements.b.value)return falha('As duas senhas não conferem.');
+      bt.disabled=true;bt.textContent=novo?'Criando…':'Abrindo…';err.hidden=true;
+      try{
+        if(novo){const ok=await criarPerfil(nome,senha);fim(true);if(!ok)avisar('Este navegador não está guardando os dados da página (janela anônima, armazenamento bloqueado ou cheio). O perfil vale só até sair do perfil, trocar de órgão, recarregar ou fechar esta aba.');}
+        else{await abrirPerfil(nome,senha);fim(true);}
+      }catch(x){PERFIL=null;S=normalizar(null);falha(x&&x.name==='OperationError'?'Senha incorreta.':'Não foi possível abrir o perfil: '+((x&&x.message)||x));}
+    };
+    document.body.appendChild(bg);a.focus();
+  });
+}
+let escolhendo=false;
+async function escolher(nome){
+  if(PERFIL||escolhendo||!ORGAOS.find(x=>x[0]===nome))return;
+  if(!(window.crypto&&crypto.subtle)){avisar('Os perfis com senha precisam de conexão segura: abra a página por https (ou em localhost).');return;}
+  escolhendo=true;let abriu=false;try{abriu=await dlgPerfil(nome);}finally{escolhendo=false;}
+  if(!abriu)return;
+  try{localStorage.setItem(ULT,nome);}catch(e){}
+  entrar();
+  const h=await kvGet('pasta:'+nome);if(h){try{if(await h.queryPermission({mode:'readwrite'})==='granted')pasta=h;else pastaPend=h;}catch(e){pastaPend=h;}refreshComp();if(conv())renderMsgs();}
+}
+async function sair(trocar){ // sair = recarregar: nada do perfil fica na memória da aba. "Trocar de órgão" volta à lista; "Sair" volta pedindo a senha do mesmo órgão
+  if((!(await save())||abort)&&!(await confirmar(abort?'Há uma resposta em andamento: sair agora interrompe a resposta e o que faltava se perde. Sair mesmo assim?':'As últimas alterações não estão guardadas neste navegador (armazenamento cheio ou bloqueado). Sair mesmo assim? Elas serão perdidas.','Sair')))return;
+  await save();gLimpar();if(trocar)lsDel(ULT);location.reload();
+}
+renderGrid();
+$('grid-org').onclick=e=>{const b=e.target.closest('[data-orgao]');if(b)escolher(b.dataset.orgao);};
+$('btnTrocar').onclick=()=>sair(true);$('btnSair').onclick=()=>sair(false);
 function entrar(){
   $('entrada').hidden=true;$('app').hidden=false;
   $('ola').textContent='Olá';
   $('footNome').textContent=S.orgao||'Servidor';$('footOrg').textContent=`${sigla()} · Prefeitura de São Luís`;
   $('avatar').textContent=sigla().slice(0,3);
   $('aside').classList.toggle('min',S.min);
-  showView(S.view||'chat');
+  showView(S.view==='minuta'?'chat':S.view||'chat'); // o editor de minuta não guarda o documento: voltar a ele depois de entrar mostraria um editor vazio
+  if(!dentroApp()&&location.protocol!=='file:'&&S.google.clientId&&gOn().length)carregarGIS().catch(()=>{}); // deixa o login do Google pronto para o primeiro envio
 }
 
 /* ---------- composer ---------- */
@@ -856,7 +1024,7 @@ function renderModoMenu(menu){
 }
 document.addEventListener('click',()=>document.querySelectorAll('.menu').forEach(m=>m.hidden=true));
 document.addEventListener('click',e=>{const r=e.target.closest('[data-rm]');if(r){anexos.splice(+r.dataset.rm,1);refreshComp();}
-  if(e.target.closest('[data-rmpasta]')){pasta=null;pastaPend=null;kvSet('pasta',null);refreshComp();}
+  if(e.target.closest('[data-rmpasta]')){pasta=null;pastaPend=null;kvSet('pasta:'+S.orgao,null);refreshComp();}
   const rc=e.target.closest('[data-reconn]');if(rc)reconectarPasta();});
 /* ---------- extração de texto: PDF (pdf.js) e DOCX (XML interno) ---------- */
 let pdfjsP=null;
@@ -1045,8 +1213,9 @@ const GSVC={
   drive:{nome:'Google Drive',ab:'GD',cor:'#1E71AF',scope:'https://www.googleapis.com/auth/drive.readonly',uso:'arquivos do Drive'},
   calendar:{nome:'Google Calendar',ab:'31',cor:'#2E7D4F',scope:'https://www.googleapis.com/auth/calendar.readonly',uso:'compromissos da agenda'},
   gmail:{nome:'Gmail',ab:'M',cor:'#B23A3A',scope:'https://www.googleapis.com/auth/gmail.readonly',uso:'e-mails'}};
-const GK='inova-slz-gtok'; // token só na aba (sessionStorage): some ao fechar; o Google não entrega renovação sem servidor
-let GTOK=null;try{GTOK=JSON.parse(sessionStorage.getItem(GK)||'null');}catch(e){}
+const GK='inova-slz-gtok'; // chave usada por versões anteriores (sessionStorage); hoje só é apagada
+let GTOK=null; // token só na memória da aba: some ao sair do perfil ou recarregar, e assim nunca passa de um perfil a outro
+try{sessionStorage.removeItem(GK);}catch(e){}
 const gOn=()=>Object.keys(GSVC).filter(k=>S.google.on[k]);
 const googleAtivo=()=>!dentroApp()&&usarApi()&&!!S.google.clientId&&gOn().length>0;
 const googleUsavel=()=>googleAtivo()&&gCobre(gEscopos()); // ligado E com autorização válida nesta aba
@@ -1065,7 +1234,7 @@ function pedirTokenGoogle(escopos,prompt){ // abre a janela do Google; só funci
   return new Promise((res,rej)=>{
     const cfg={client_id:S.google.clientId,scope:escopos.join(' '),include_granted_scopes:true,prompt,
       callback:r=>{if(!r||r.error||!r.access_token)return rej(new Error(r&&r.error==='access_denied'?'o acesso foi negado na tela do Google':'o Google recusou o pedido ('+((r&&(r.error_description||r.error))||'sem detalhe')+')'));
-        GTOK={token:r.access_token,exp:Date.now()+(+r.expires_in||3600)*1000,scope:r.scope||''};try{sessionStorage.setItem(GK,JSON.stringify(GTOK));}catch(e){}res(r);},
+        GTOK={token:r.access_token,exp:Date.now()+(+r.expires_in||3600)*1000,scope:r.scope||''};res(r);},
       error_callback:e=>rej(new Error(e&&e.type==='popup_failed_to_open'?'o navegador bloqueou a janela de login do Google (permita pop-ups para esta página)':e&&e.type==='popup_closed'?'a janela de login do Google foi fechada antes de concluir':'falha na janela de login do Google'))};
     if(S.google.email)cfg.login_hint=S.google.email;
     try{google.accounts.oauth2.initTokenClient(cfg).requestAccessToken();}catch(e){rej(e);}
@@ -1132,7 +1301,7 @@ $('listaConn').onclick=e=>{const r=e.target.closest('[data-gsvc]');if(!r)return;
   if(r.classList.contains('dis')){avisar(dentroApp()?'Dentro do claude.ai os conectores não funcionam. Abra a página pelo servidor local ou pelo site da Prefeitura.':location.protocol==='file:'?'Abra a página pelo servidor local ou pelo site da Prefeitura: o Google não aceita páginas abertas como arquivo.':'Informe e salve o Client ID do Google antes de conectar.');return;}
   alternarConector(r.dataset.gsvc);};
 $('listaConn').onkeydown=e=>{const r=e.target.closest('[data-gsvc]');if(r&&(e.key==='Enter'||e.key===' ')){e.preventDefault();r.click();}};
-if(!dentroApp()&&location.protocol!=='file:'&&S.google.clientId&&gOn().length)carregarGIS().catch(()=>{});
+
 /* ferramentas de leitura (mesmos nomes do portal) */
 const GEXPORT={'application/vnd.google-apps.document':'text/plain','application/vnd.google-apps.presentation':'text/plain'};
 const DOCX_MIME='application/vnd.openxmlformats-officedocument.wordprocessingml.document',XLSX_MIME='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',PPTX_MIME='application/vnd.openxmlformats-officedocument.presentationml.presentation';
@@ -1613,7 +1782,7 @@ async function kvSet(k,v){try{const db=await idb();await new Promise((res,rej)=>
 async function kvGet(k){try{const db=await idb();return await new Promise((res,rej)=>{const tx=db.transaction('kv','readonly');const q=tx.objectStore('kv').get(k);q.onsuccess=()=>res(q.result);q.onerror=()=>rej(q.error);});}catch(e){return null;}}
 async function conectarPasta(){
   if(!window.showDirectoryPicker){avisar('Pasta de trabalho exige Chrome ou Edge, com a página aberta fora do claude.ai (arquivo local ou site).');return;}
-  try{const h=await window.showDirectoryPicker({mode:'readwrite'});pasta=h;pastaPend=null;kvSet('pasta',h);refreshComp();toast(`Pasta "${h.name}" conectada`);}
+  try{const h=await window.showDirectoryPicker({mode:'readwrite'});pasta=h;pastaPend=null;kvSet('pasta:'+S.orgao,h);refreshComp();toast(`Pasta "${h.name}" conectada`);}
   catch(e){if(e.name!=='AbortError')avisar('Não foi possível conectar a pasta: '+(e.message||e)+(e.name==='SecurityError'?' (dentro do claude.ai o seletor de pastas é bloqueado; abra o arquivo local ou o site)':''));}
 }
 async function reconectarPasta(){
@@ -1654,7 +1823,19 @@ function renderCfg(){
   const dentro=dentroApp();$('cBloq').hidden=!dentro;
   const dg=$('cDiag');if(sample){dg.hidden=false;dg.innerHTML=`<b>Diagnóstico do Claude do app:</b> teto por chamada ${(sampleLimits&&sampleLimits.maxPromptBytes?sampleLimits.maxPromptBytes:65536).toLocaleString('pt-BR')} bytes · ferramentas da página: <b>${sampleLimits&&sampleLimits.tools?'disponíveis (conteúdo grande vai em blocos, sem cortes)':'indisponíveis nesta visualização (conteúdo acima do teto é reduzido)'}</b> · imagens: ${sampleLimits&&sampleLimits.images?'sim':'não'}`;}else dg.hidden=true;$('cPref').disabled=dentro;$('cTest').disabled=dentro;$('cTest').title=dentro?'Indisponível dentro do claude.ai':'';
   renderConectores();
+  $('cPerfilNome').textContent=orgaoRef();$('cPerfilUser').value=S.orgao;$('cSenhaErr').hidden=true;$('cSenhaOk').hidden=true;
 }
+$('formSenha').onsubmit=async e=>{
+  e.preventDefault();const er=$('cSenhaErr'),okk=$('cSenhaOk'),nova=$('cSenhaNova').value,falha=t=>{er.textContent=t;er.hidden=false;};er.hidden=true;okk.hidden=true;
+  if(nova.length<SENHA_MIN)return falha(`A nova senha precisa ter pelo menos ${SENHA_MIN} caracteres.`);
+  if(nova!==$('cSenhaNova2').value)return falha('As duas senhas novas não conferem.');
+  try{await save();await lerPerfil(S.orgao,$('cSenhaAtual').value);}catch(x){return falha(x&&x.name==='OperationError'?'A senha atual não confere.':'Não foi possível conferir a senha atual: '+((x&&x.message)||x));}
+  const antes=PERFIL,sal=crypto.getRandomValues(new Uint8Array(16));
+  PERFIL={k:antes.k,sal,it:PBKDF2_IT,chave:await derivar(nova,sal,PBKDF2_IT)};
+  if(!(await save())){PERFIL=antes;return falha('Não foi possível gravar com a nova senha (armazenamento do navegador cheio ou bloqueado). A senha antiga continua valendo.');}
+  ['cSenhaAtual','cSenhaNova','cSenhaNova2'].forEach(i=>$(i).value='');okk.textContent='Senha alterada.';okk.hidden=false;
+};
+$('cSair').onclick=()=>sair(false);
 $('cExport').onclick=async()=>{
   const dados={versao:1,exportadoEm:new Date().toISOString(),orgao:S.orgao,custom:S.custom,skillsC:S.skillsC,skillsOn:S.skillsOn,api:S.api,google:{clientId:S.google.clientId}};
   try{await baixar(`inova-ai-slz-config-${new Date().toISOString().slice(0,10)}.json`,JSON.stringify(dados,null,1),'application/json');$('cIoMsg').textContent='Exportado. Contém a chave de API: guarde o arquivo com cuidado.';$('cIoMsg').hidden=false;}
@@ -1662,7 +1843,7 @@ $('cExport').onclick=async()=>{
 };
 $('cImport').onclick=async()=>{
   const [f]=await abrirSeletor({accept:'.json,application/json'});if(!f)return;
-  try{const d=JSON.parse(await f.text());if(!d||typeof d!=='object'||(!Array.isArray(d.custom)&&!Array.isArray(d.skillsC)))throw new Error('arquivo não é uma configuração do Inova AI');
+  try{const d=JSON.parse(await f.text(),limpo);if(!d||typeof d!=='object'||(!Array.isArray(d.custom)&&!Array.isArray(d.skillsC)))throw new Error('arquivo não é uma configuração do Inova AI');
     let n=0;for(const a of (d.custom||[])){if(a&&a.id&&a.nome&&a.prompt&&!S.custom.find(x=>x.id===a.id)){S.custom.push(a);n++;}}
     let k=0;for(const s of (d.skillsC||[])){if(s&&s.id&&s.nome&&s.txt&&!S.skillsC.find(x=>x.id===s.id)){S.skillsC.push(s);k++;}}
     if(d.skillsOn&&typeof d.skillsOn==='object')Object.assign(S.skillsOn,d.skillsOn);
@@ -1741,14 +1922,13 @@ $('fDrop').ondragleave=()=>$('fDrop').classList.remove('over');
 $('fDrop').ondrop=e=>{e.preventDefault();$('fDrop').classList.remove('over');addArquivosBase([...e.dataTransfer.files]);};
 $('fCancel').onclick=()=>{$('formAst').hidden=true;};
 $('btnNovoAst').onclick=()=>abrirForm(null);
-$('formAst').onsubmit=e=>{
+$('formAst').onsubmit=async e=>{
   e.preventDefault();
   const nome=$('fNome').value.trim(),prompt=$('fPrompt').value.trim();
   if(!nome||!prompt){$('fErr').textContent='Nome e prompt do sistema são obrigatórios.';$('fErr').hidden=false;return;}
-  const a={id:F.id||('c'+Date.now().toString(36)),nome,desc:$('fDesc').value.trim(),prompt,icone:F.icone,logo:F.logo,arquivos:F.arquivos};
+  const a={id:F.id||(F.id='c'+Date.now().toString(36)),nome,desc:$('fDesc').value.trim(),prompt,icone:F.icone,logo:F.logo,arquivos:F.arquivos};
   const i=S.custom.findIndex(x=>x.id===a.id);if(i>=0)S.custom[i]=a;else S.custom.push(a);
-  try{save();}catch(err){}
-  if(localStorage.getItem(LS)&&!localStorage.getItem(LS).includes(a.id)){$('fErr').textContent='Não coube no armazenamento do navegador: reduza os arquivos base ou a logo. Seu texto foi preservado.';$('fErr').hidden=false;return;}
+  if(!(await save())&&jaGravou){$('fErr').textContent='Não coube no armazenamento do navegador: reduza os arquivos base ou a logo. Seu texto foi preservado.';$('fErr').hidden=false;return;}
   $('formAst').hidden=true;renderAst();refreshComp();toast('Assistente salvo');
 };
 const STAR='M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8L12 3z';
@@ -1848,8 +2028,8 @@ async function importarSkill(f){ // mesmas regras da rota /api/skills/importar d
     if(!corpo.trim())throw new Error('A skill importada está vazia');
     if(promptChars>MAX_CONTEUDO)throw new Error(`As instruções da skill (SKILL.md + elementos textuais) somam ${promptChars.toLocaleString('pt-BR')} caracteres — acima do limite de ${MAX_CONTEUDO.toLocaleString('pt-BR')}.`);
     const s={id:'s'+Date.now().toString(36),nome:nome||f.name.replace(/\.(skill|zip|md|markdown)$/i,''),desc,txt:corpo,sempre:false,arquivos};
-    S.skillsC.push(s);save();
-    if(!(localStorage.getItem(LS)||'').includes(s.id)){S.skillsC.pop();throw new Error('Não coube no armazenamento do navegador: pacote grande demais para esta página.');}
+    S.skillsC.push(s);
+    if(!(await save())&&jaGravou){S.skillsC.pop();throw new Error('Não coube no armazenamento do navegador: pacote grande demais para esta página.');}
     renderSkills();refreshComp();
     msg(`Skill "${s.nome}" importada com ${arquivos.length} elemento${arquivos.length===1?'':'s'}.`+(ignorados.length?` Ignorados: ${ignorados.join(', ')}.`:''),true);
   }catch(err){msg('Erro ao importar a skill: '+(err.message||err),false);}
@@ -1867,11 +2047,10 @@ $('btnCfg').onclick=()=>showView('config');
 $('btnMin').onclick=()=>{S.min=!S.min;save();$('aside').classList.toggle('min',S.min);};
 
 /* ---------- boot ---------- */
-if(S.orgao)entrar();
+{const leg=legado(),u=lsGet(ULT)||(leg&&leg.orgao)||'';if(u)escolher(u);} // abre direto o perfil usado por último, ou o do órgão cujos dados ainda estão sem senha
 (async()=>{
   [sample,downloads]=await Promise.all([useCap('sample'),useCap('downloads')]);
   if(sample&&sample.limits){try{sampleLimits=await sample.limits();if(sampleLimits&&sampleLimits.maxPromptBytes>=32*1024)LIM_APP=sampleLimits.maxPromptBytes-6*1024;}catch(e){}}
-  const h=await kvGet('pasta');if(h){try{if(await h.queryPermission({mode:'readwrite'})==='granted')pasta=h;else pastaPend=h;}catch(e){pastaPend=h;}}
   refreshComp();if(conv())renderMsgs();
 })();
 </script>
